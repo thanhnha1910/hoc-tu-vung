@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  /* Quizlet-accurate palette — deep navy bg, indigo accent, vivid mode colors */
+  --color-bg: oklch(0.13 0.05 275);
+  --color-bg-elev: oklch(0.19 0.05 275);
+  --color-bg-elev-2: oklch(0.25 0.05 275);
+  --color-ink: oklch(0.98 0.01 270);
+  --color-ink-muted: oklch(0.70 0.04 275);
+  --color-line: oklch(0.30 0.04 275);
+  --color-accent: oklch(0.74 0.16 290);      /* lavender/indigo — Quizlet's "Bạn không biết?" */
+  --color-accent-ink: oklch(0.98 0.01 270);
+  --color-good: oklch(0.72 0.18 150);
+  --color-warn: oklch(0.82 0.15 80);
+  --color-bad: oklch(0.68 0.21 25);
+  --color-easy: oklch(0.70 0.16 245);
+
+  /* Mode-specific tile colors */
+  --color-mode-flash: oklch(0.72 0.18 285);    /* indigo */
+  --color-mode-learn: oklch(0.72 0.18 150);    /* green — for active progress */
+  --color-mode-test:  oklch(0.74 0.17 210);    /* cyan */
+  --color-mode-blocks: oklch(0.72 0.20 305);   /* magenta */
+  --color-mode-blast: oklch(0.78 0.18 60);     /* amber */
+  --color-mode-match: oklch(0.72 0.20 145);    /* emerald */
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+
+  --radius-card: 1.25rem;
+}
+
+/* Force dark Quizlet palette regardless of system preference */
+
+html {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* iOS: respect notch / home indicator */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  /* Prevent body overflow rubber-band scroll fights with card touch swipe */
+  overscroll-behavior-y: contain;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable iOS auto-zoom on input focus (only when font-size >= 16px) */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* Min tap target — Apple HIG 44px, Google MD3 48dp */
+.tap {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Card flip animation */
+.flip-3d {
+  transform-style: preserve-3d;
+  transition: transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+.flip-3d.flipped {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
