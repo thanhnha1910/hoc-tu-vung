@@ -225,35 +225,54 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         <SettingsPanel settings={settings} onChange={updateSettings} />
       </div>
 
-      {/* Card */}
-      <button
-        type="button"
-        onClick={onCardTap}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        className="relative w-full flex-1 select-none sm:flex-none sm:aspect-[5/3]"
-        style={{
-          perspective: "1200px",
-          minHeight: "260px",
-          maxHeight: "65vh",
-        }}
-        aria-label={flipped ? "Lật về mặt trước" : "Lật xem nghĩa"}
-      >
+      {/* Card — vertically centered in remaining space */}
+      <div className="flex flex-1 items-center justify-center">
+        <button
+          type="button"
+          onClick={onCardTap}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          className="relative w-full max-w-2xl select-none aspect-[4/5] sm:aspect-[5/3]"
+          style={{
+            perspective: "1400px",
+          }}
+          aria-label={flipped ? "Lật về mặt trước" : "Lật xem nghĩa"}
+        >
         <div
           className={`flip-3d relative h-full w-full ${flipped ? "flipped" : ""}`}
         >
           <CardFace>
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-ink-muted)] sm:text-xs">
-              {frontIsEnglish ? "English" : "Tiếng Việt"}
-            </span>
-            <p className="mt-4 break-words px-2 text-center text-3xl font-bold leading-tight sm:mt-5 sm:text-5xl md:text-6xl">
-              {frontText}
-            </p>
-            {frontIsEnglish && card.pronunciation && (
-              <p className="mt-3 text-sm text-[var(--color-ink-muted)] sm:text-base">
-                /{card.pronunciation}/
+            {/* TOP — editorial label */}
+            <div className="flex items-center gap-2">
+              <span className="h-px w-6 bg-[var(--color-ink-muted)]/40" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-[var(--color-ink-muted)] sm:text-xs">
+                {frontIsEnglish ? "English" : "Tiếng Việt"}
+              </span>
+              <span className="h-px w-6 bg-[var(--color-ink-muted)]/40" />
+            </div>
+
+            {/* CENTER — term in display serif + IPA italic */}
+            <div className="flex flex-col items-center gap-4 px-2 text-center">
+              <p
+                className="break-words font-display text-4xl font-medium leading-[1.05] tracking-tight sm:text-6xl md:text-7xl"
+                style={{ fontVariationSettings: '"opsz" 144, "SOFT" 50' }}
+              >
+                {frontText}
               </p>
-            )}
+              {frontIsEnglish && card.pronunciation && (
+                <p className="font-display text-base italic text-[var(--color-ink-muted)] sm:text-lg">
+                  /{card.pronunciation}/
+                </p>
+              )}
+            </div>
+
+            {/* BOTTOM — minimal hint */}
+            <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-[var(--color-ink-muted)] sm:text-xs">
+              <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+              Bấm để lật
+              <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+            </p>
+
             {frontIsAudible && (
               <SpeakerButton
                 onClick={(e) => {
@@ -263,28 +282,45 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
                 }}
               />
             )}
-            <p className="absolute bottom-4 px-4 text-center text-[10px] leading-tight text-[var(--color-ink-muted)] sm:text-xs">
-              Bấm để lật
-            </p>
           </CardFace>
 
           <CardFace back>
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-ink-muted)] sm:text-xs">
-              {frontIsEnglish ? "Tiếng Việt" : "English"}
-            </span>
-            <p className="mt-4 break-words px-2 text-center text-2xl font-bold leading-tight sm:mt-5 sm:text-3xl md:text-4xl">
-              {backText}
+            {/* TOP — editorial label */}
+            <div className="flex items-center gap-2">
+              <span className="h-px w-6 bg-[var(--color-ink-muted)]/40" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.3em] text-[var(--color-ink-muted)] sm:text-xs">
+                {frontIsEnglish ? "Tiếng Việt" : "English"}
+              </span>
+              <span className="h-px w-6 bg-[var(--color-ink-muted)]/40" />
+            </div>
+
+            {/* CENTER — definition + IPA + example */}
+            <div className="flex flex-col items-center gap-4 px-2 text-center">
+              <p
+                className="break-words font-display text-3xl font-medium leading-[1.1] tracking-tight sm:text-4xl md:text-5xl"
+                style={{ fontVariationSettings: '"opsz" 96, "SOFT" 50' }}
+              >
+                {backText}
+              </p>
+              {!frontIsEnglish && card.pronunciation && (
+                <p className="font-display text-base italic text-[var(--color-ink-muted)] sm:text-lg">
+                  /{card.pronunciation}/
+                </p>
+              )}
+              {card.example && (
+                <p className="mt-3 max-w-md border-t border-[var(--color-line)] pt-3 font-display text-sm italic leading-relaxed text-[var(--color-ink-muted)] sm:text-base">
+                  &ldquo;{card.example}&rdquo;
+                </p>
+              )}
+            </div>
+
+            {/* BOTTOM — guidance */}
+            <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-[var(--color-ink-muted)] sm:text-xs">
+              <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+              Chấm độ thuộc bên dưới
+              <span className="h-1 w-1 rounded-full bg-current opacity-50" />
             </p>
-            {!frontIsEnglish && card.pronunciation && (
-              <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
-                /{card.pronunciation}/
-              </p>
-            )}
-            {card.example && (
-              <p className="mt-3 max-w-md px-2 text-center text-xs italic text-[var(--color-ink-muted)] sm:text-sm">
-                &ldquo;{card.example}&rdquo;
-              </p>
-            )}
+
             {backIsAudible && (
               <SpeakerButton
                 onClick={(e) => {
@@ -297,6 +333,7 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
           </CardFace>
         </div>
       </button>
+      </div>
 
       {/* Rating buttons */}
       <div
@@ -343,14 +380,28 @@ function SpeakerButton({
   onClick: (e: React.MouseEvent) => void;
 }) {
   return (
-    <span
-      role="button"
+    <button
+      type="button"
       aria-label="Phát âm"
       onClick={onClick}
-      className="tap absolute right-3 top-3 flex items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-bg)] text-xl"
+      className="speaker-btn tap absolute right-4 top-4 flex items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-bg)]/70 text-[var(--color-ink-muted)] backdrop-blur-sm hover:border-[var(--color-accent)]/60 hover:text-[var(--color-accent)]"
     >
-      🔊
-    </span>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M11 5L6 9H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h3l5 4z" fill="currentColor" />
+        <path d="M16 7a5 5 0 0 1 0 10" />
+        <path d="M19 4a9 9 0 0 1 0 16" opacity="0.5" />
+      </svg>
+    </button>
   );
 }
 
@@ -363,12 +414,57 @@ function CardFace({
 }) {
   return (
     <div
-      className={`flip-face absolute inset-0 flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4 shadow-sm sm:p-6 ${
+      className={`flip-face absolute inset-0 rounded-[var(--radius-card)] border-2 border-[var(--color-line)] bg-[var(--color-bg-elev)] card-shadow ${
         back ? "flip-back" : ""
       }`}
     >
-      {children}
+      {/* Radial warm-spot lighting */}
+      <div className="card-vignette absolute inset-0 rounded-[var(--radius-card)]" />
+
+      {/* Analog film grain */}
+      <div className="card-grain absolute inset-0 rounded-[var(--radius-card)]" />
+
+      {/* Hairline border on top of everything */}
+      <div className="pointer-events-none absolute inset-0 rounded-[var(--radius-card)] ring-1 ring-inset ring-white/[0.06]" />
+
+      {/* Editorial corner ticks */}
+      <CornerTick className="absolute left-3 top-3" position="tl" />
+      <CornerTick className="absolute right-3 top-3" position="tr" />
+      <CornerTick className="absolute bottom-3 left-3" position="bl" />
+      <CornerTick className="absolute bottom-3 right-3" position="br" />
+
+      {/* Content */}
+      <div className="relative flex h-full w-full flex-col items-center justify-between p-6 sm:p-10">
+        {children}
+      </div>
     </div>
+  );
+}
+
+function CornerTick({
+  className,
+  position,
+}: {
+  className?: string;
+  position: "tl" | "tr" | "bl" | "br";
+}) {
+  const path = {
+    tl: "M 2 14 L 2 2 L 14 2",
+    tr: "M 10 2 L 22 2 L 22 14",
+    bl: "M 2 10 L 2 22 L 14 22",
+    br: "M 10 22 L 22 22 L 22 10",
+  }[position];
+  return (
+    <svg
+      aria-hidden
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`text-[var(--color-ink-muted)] opacity-40 ${className ?? ""}`}
+    >
+      <path d={path} stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" />
+    </svg>
   );
 }
 

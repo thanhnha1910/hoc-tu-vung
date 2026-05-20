@@ -1,5 +1,14 @@
 import type { Metadata, Viewport } from "next";
+import { Fraunces } from "next/font/google";
 import "./globals.css";
+
+// Variable display serif with Vietnamese diacritics + optical-size axis
+const fraunces = Fraunces({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-display",
+  display: "swap",
+  axes: ["SOFT", "opsz"],
+});
 
 export const metadata: Metadata = {
   title: "Học Từ Vựng",
@@ -22,7 +31,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" className={fraunces.variable}>
       <body className="min-h-dvh antialiased">{children}</body>
     </html>
   );
