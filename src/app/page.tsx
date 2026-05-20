@@ -1,6 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
+interface Props {
+  searchParams: Promise<{ code?: string; next?: string }>;
+}
+
+export default async function HomePage({ searchParams }: Props) {
+  // Supabase OAuth can land back on `/` with `?code=...` if Site URL is set to
+  // the root. Forward that to the proper callback handler so login completes.
+  const { code, next } = await searchParams;
+  if (code) {
+    const qs = new URLSearchParams({ code, ...(next ? { next } : {}) });
+    redirect(`/auth/callback?${qs.toString()}`);
+  }
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-10 px-5 py-10 sm:py-16">
       <header className="flex flex-col gap-2">
