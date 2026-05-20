@@ -3,8 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDeck, listCards } from "@/lib/repo";
 import {
-  BlastIcon,
-  BlocksIcon,
   FlashIcon,
   LearnIcon,
   MatchIcon,
@@ -81,8 +79,8 @@ export default async function DeckPage({
         </div>
       </header>
 
-      {/* Mode grid — the heart of the redesign */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* Mode grid */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ModeTile
           href={`/study/${deck.id}?mode=flashcards`}
           label="Thẻ ghi nhớ"
@@ -94,31 +92,13 @@ export default async function DeckPage({
           label="Học"
           color="learn"
           icon={LearnIcon}
-          badge="NEW"
         />
         <ModeTile
           href={`/study/${deck.id}?mode=test`}
           label="Kiểm tra"
           color="test"
           icon={TestIcon}
-          badge="NEW"
           disabled={cards.length < 4}
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=blocks`}
-          label="Khối hộp"
-          color="blocks"
-          icon={BlocksIcon}
-          badge="sắp ra"
-          disabled
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=blast`}
-          label="Blast"
-          color="blast"
-          icon={BlastIcon}
-          badge="sắp ra"
-          disabled
         />
         <ModeTile
           href={`/study/${deck.id}?mode=match`}
@@ -126,7 +106,6 @@ export default async function DeckPage({
           color="match"
           icon={MatchIcon}
           disabled={!enoughForMatch}
-          badge={enoughForMatch ? "NEW" : "cần ≥4 thẻ"}
         />
       </section>
 

@@ -232,21 +232,25 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         className="relative w-full flex-1 select-none sm:flex-none sm:aspect-[5/3]"
-        style={{ perspective: "1200px", minHeight: "200px" }}
+        style={{
+          perspective: "1200px",
+          minHeight: "260px",
+          maxHeight: "65vh",
+        }}
         aria-label={flipped ? "Lật về mặt trước" : "Lật xem nghĩa"}
       >
         <div
           className={`flip-3d relative h-full w-full ${flipped ? "flipped" : ""}`}
         >
           <CardFace>
-            <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-ink-muted)]">
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-ink-muted)] sm:text-xs">
               {frontIsEnglish ? "English" : "Tiếng Việt"}
             </span>
-            <p className="mt-3 break-words px-2 text-center text-2xl font-semibold leading-tight sm:text-4xl md:text-5xl">
+            <p className="mt-4 break-words px-2 text-center text-3xl font-bold leading-tight sm:mt-5 sm:text-5xl md:text-6xl">
               {frontText}
             </p>
             {frontIsEnglish && card.pronunciation && (
-              <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
+              <p className="mt-3 text-sm text-[var(--color-ink-muted)] sm:text-base">
                 /{card.pronunciation}/
               </p>
             )}
@@ -259,16 +263,16 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
                 }}
               />
             )}
-            <p className="absolute bottom-3 px-4 text-center text-[10px] leading-tight text-[var(--color-ink-muted)] sm:bottom-4 sm:text-xs">
-              Bấm hoặc nhấn Space để lật
+            <p className="absolute bottom-4 px-4 text-center text-[10px] leading-tight text-[var(--color-ink-muted)] sm:text-xs">
+              Bấm để lật
             </p>
           </CardFace>
 
           <CardFace back>
-            <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-ink-muted)]">
+            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-ink-muted)] sm:text-xs">
               {frontIsEnglish ? "Tiếng Việt" : "English"}
             </span>
-            <p className="mt-3 break-words px-2 text-center text-xl font-semibold leading-tight sm:text-2xl md:text-3xl">
+            <p className="mt-4 break-words px-2 text-center text-2xl font-bold leading-tight sm:mt-5 sm:text-3xl md:text-4xl">
               {backText}
             </p>
             {!frontIsEnglish && card.pronunciation && (

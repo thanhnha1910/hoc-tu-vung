@@ -23,18 +23,18 @@ export function ModeTile({
 }: Props) {
   const colorVar = `var(--color-mode-${color})`;
   const className =
-    "group relative flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border bg-[var(--color-bg-elev)] p-3 text-left transition-all hover:scale-[1.02] hover:bg-[var(--color-bg-elev-2)] active:scale-[0.98] sm:gap-3 sm:p-4";
+    "group relative flex min-w-0 items-center gap-3 overflow-hidden rounded-2xl border bg-[var(--color-bg-elev)] p-3 text-left transition-all hover:scale-[1.02] hover:bg-[var(--color-bg-elev-2)] active:scale-[0.98] sm:p-4";
 
   const inner = (
     <>
       <span
         aria-hidden
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white sm:h-11 sm:w-11"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white sm:h-11 sm:w-11"
         style={{ background: colorVar }}
       >
         {icon}
       </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-semibold sm:text-base">
+      <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-tight sm:text-base">
         {label}
       </span>
       {badge && (
