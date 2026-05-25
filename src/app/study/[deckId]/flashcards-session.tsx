@@ -33,6 +33,10 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [finished, setFinished] = useState(false);
+  // Bumped on every grade. Combined with card.id as the inner-card key so the
+  // flip-3d subtree remounts even when AGAIN returns the same card in a
+  // single-card deck (id alone would stay constant).
+  const [cardSeq, setCardSeq] = useState(0);
   const [stats, setStats] = useState({
     again: 0,
     hard: 0,
@@ -108,6 +112,7 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
       // next render never momentarily shows the new card with flipped=true
       // (which would flash the back face AND fire the auto-speak effect).
       setFlipped(false);
+      setCardSeq((s) => s + 1);
 
       if (rating === RATING.AGAIN) {
         setQueue((q) => [
@@ -244,8 +249,18 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
           }}
           aria-label={flipped ? "Lật về mặt trước" : "Lật xem nghĩa"}
         >
+        {/*
+          The key remounts this subtree whenever a NEW card slot is presented.
+          That way the new card starts at rotateY(0) instead of animating from
+          rotateY(180deg) back to 0 — which is what caused the English back
+          face to flash for ~half a second during the back-flip transition.
+
+          We combine card.id with cardSeq so the remount triggers even on a
+          single-card deck where AGAIN re-presents the same id.
+        */}
         <div
-          className={`flip-3d relative h-full w-full ${flipped ? "flipped" : ""}`}
+          key={`${card.id}-${cardSeq}`}
+          className={`flip-3d card-enter relative h-full w-full ${flipped ? "flipped" : ""}`}
         >
           <CardFace>
             {/* TOP — editorial label */}
