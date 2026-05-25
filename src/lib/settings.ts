@@ -18,7 +18,8 @@ export const DEFAULT_SETTINGS: StudySettings = {
   shuffle: false,
   autoPlay: true,
   frontSide: "term", // English term shown first by default
-  speechRate: 0.95,
+  // Slightly slower than natural pace so learners can shadow comfortably.
+  speechRate: 0.9,
 };
 
 function readSettings(): StudySettings {

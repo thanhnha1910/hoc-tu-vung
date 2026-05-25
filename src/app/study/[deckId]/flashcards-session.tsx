@@ -42,6 +42,11 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
 
   const card = queue[index];
 
+  // Which side is currently the English (audible) side.
+  // Audio is ALWAYS the English vocab term — we just decide WHEN to play it.
+  const frontIsEnglish = settings.frontSide === "term";
+  const englishVisible = frontIsEnglish ? !flipped : flipped;
+
   // Apply shuffle when setting toggles
   const shuffleRef = useRef(settings.shuffle);
   useEffect(() => {
@@ -69,12 +74,14 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
     setFlipped(false);
   }, [index]);
 
-  // Auto-speak English term when a new card appears.
-  // Note: on first card, browser may block (no user gesture yet) — that's fine,
-  // user's first tap to flip will speak (see speakTerm() in onCardTap).
+  // Auto-speak the English term ONLY when the English side is visible.
+  // When front=Vietnamese, the card appears silently — user flips to reveal
+  // (and hear) the English vocab. Avoids the "shows VN but reads EN" bug.
   useEffect(() => {
-    if (card && settings.autoPlay) speak(card.term, settings.speechRate);
-  }, [card, settings.autoPlay, settings.speechRate]);
+    if (!card || !settings.autoPlay) return;
+    if (!englishVisible) return;
+    speak(card.term, settings.speechRate);
+  }, [card, englishVisible, settings.autoPlay, settings.speechRate]);
 
   const intervals = useMemo(
     () => (card ? previewIntervals(card) : null),
@@ -123,11 +130,10 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
       if (e.code === "Space") {
         e.preventDefault();
         unlock();
-        setFlipped((f) => {
-          // When unflipping back? we only speak on first flip. Speak always to be safe.
-          if (!f) speakTerm();
-          return !f;
-        });
+        // Speak only when the English side is about to become visible
+        // (flipping toggles englishVisible).
+        if (!englishVisible) speakTerm();
+        setFlipped((f) => !f);
       } else if (e.key === "s" || e.key === "S") {
         speakTerm();
       } else if (flipped && ["1", "2", "3", "4"].includes(e.key)) {
@@ -137,7 +143,7 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [flipped, grade, speakTerm]);
+  }, [flipped, englishVisible, grade, speakTerm]);
 
   // Swipe gestures
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -154,8 +160,9 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy)) return;
     unlock();
     if (!flipped) {
+      // Swipe flips the card. Speak only if the English side will appear.
+      if (!englishVisible) speakTerm();
       setFlipped(true);
-      speakTerm();
     } else {
       grade(dx > 0 ? RATING.GOOD : RATING.AGAIN);
     }
@@ -163,10 +170,9 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
 
   function onCardTap() {
     unlock();
-    setFlipped((f) => {
-      if (!f) speakTerm(); // user tapped to flip → guaranteed-working audio context
-      return !f;
-    });
+    // Flipping toggles englishVisible. Speak only when English is about to show.
+    if (!englishVisible) speakTerm();
+    setFlipped((f) => !f);
   }
 
   if (finished) {
@@ -195,11 +201,10 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
 
   if (!card) return null;
 
-  // Determine which side is front based on settings
-  const frontIsEnglish = settings.frontSide === "term";
+  // Per-side text + which face owns the speaker icon (always the English side).
   const frontText = frontIsEnglish ? card.term : card.definition;
   const backText = frontIsEnglish ? card.definition : card.term;
-  const frontIsAudible = frontIsEnglish; // always English side gets speaker icon
+  const frontIsAudible = frontIsEnglish;
   const backIsAudible = !frontIsEnglish;
 
   return (
