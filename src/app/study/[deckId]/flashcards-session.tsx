@@ -69,19 +69,15 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reset flip state when card changes
-  useEffect(() => {
-    setFlipped(false);
-  }, [index]);
-
-  // Auto-speak the English term ONLY when the English side is visible.
-  // When front=Vietnamese, the card appears silently — user flips to reveal
-  // (and hear) the English vocab. Avoids the "shows VN but reads EN" bug.
+  // Auto-speak on a NEW card. Depends only on `card` ref — not on `flipped`,
+  // so transient flipped states during card transitions cannot trigger an
+  // unwanted English read. When front=Vietnamese, we stay silent on appear;
+  // the user's tap/swipe will speak via the manual handlers below.
   useEffect(() => {
     if (!card || !settings.autoPlay) return;
-    if (!englishVisible) return;
+    if (!frontIsEnglish) return;
     speak(card.term, settings.speechRate);
-  }, [card, englishVisible, settings.autoPlay, settings.speechRate]);
+  }, [card, frontIsEnglish, settings.autoPlay, settings.speechRate]);
 
   const intervals = useMemo(
     () => (card ? previewIntervals(card) : null),
@@ -107,6 +103,11 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         good: s.good + (rating === 3 ? 1 : 0),
         easy: s.easy + (rating === 4 ? 1 : 0),
       }));
+
+      // Reset flip state in the SAME batch as the index/queue update so the
+      // next render never momentarily shows the new card with flipped=true
+      // (which would flash the back face AND fire the auto-speak effect).
+      setFlipped(false);
 
       if (rating === RATING.AGAIN) {
         setQueue((q) => [
