@@ -15,12 +15,16 @@ create table if not exists public.decks (
   owner_id      uuid not null references auth.users(id) on delete cascade,
   name          text not null,
   description   text,
+  group_name    text,
   source_lang   text not null default 'en',
   target_lang   text not null default 'vi',
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 create index if not exists decks_owner_idx on public.decks(owner_id);
+
+alter table public.decks add column if not exists group_name text;
+create index if not exists decks_owner_group_idx on public.decks(owner_id, group_name);
 
 -- ---------- cards ----------
 create table if not exists public.cards (

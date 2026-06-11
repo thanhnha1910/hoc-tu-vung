@@ -22,6 +22,7 @@
   --color-mode-blocks: oklch(0.72 0.20 305);   /* magenta */
   --color-mode-blast: oklch(0.78 0.18 60);     /* amber */
   --color-mode-match: oklch(0.72 0.20 145);    /* emerald */
+  --color-mode-review: oklch(0.78 0.16 70);    /* gold */
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "Noto Sans", sans-serif;

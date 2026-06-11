@@ -7,6 +7,7 @@ import {
   LearnIcon,
   MatchIcon,
   ModeTile,
+  ReviewIcon,
   TestIcon,
 } from "@/components/mode-tile";
 import { AddCardForm } from "./add-card-form";
@@ -44,7 +45,7 @@ export default async function DeckPage({
         </Link>
         {dueNow > 0 && (
           <Link
-            href="/review"
+            href={`/study/${deck.id}?mode=review`}
             className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-xs font-semibold text-[var(--color-accent-ink)]"
           >
             Ôn hôm nay · {dueNow}
@@ -80,7 +81,7 @@ export default async function DeckPage({
       </header>
 
       {/* Mode grid */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <ModeTile
           href={`/study/${deck.id}?mode=flashcards`}
           label="Thẻ ghi nhớ"
@@ -92,6 +93,14 @@ export default async function DeckPage({
           label="Học"
           color="learn"
           icon={LearnIcon}
+        />
+        <ModeTile
+          href={`/study/${deck.id}?mode=review`}
+          label="Ôn tập"
+          color="review"
+          icon={ReviewIcon}
+          disabled={dueNow === 0}
+          badge={dueNow > 0 ? String(dueNow) : undefined}
         />
         <ModeTile
           href={`/study/${deck.id}?mode=test`}

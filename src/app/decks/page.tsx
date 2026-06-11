@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { countDue, listDecks } from "@/lib/repo";
+import { countDue, listCards, listDecks } from "@/lib/repo";
+import { DeckGroupsList } from "./deck-groups-list";
 import { NewDeckForm } from "./new-deck-form";
 import { SignOutButton } from "./signout-button";
 
@@ -11,6 +12,18 @@ export default async function DecksPage() {
   if (!auth.user) redirect("/login");
 
   const [decks, dueCount] = await Promise.all([listDecks(sb), countDue(sb)]);
+  const deckStats = await Promise.all(
+    decks.map(async (deck) => {
+      const cards = await listCards(sb, deck.id);
+      const now = Date.now();
+      return {
+        deck,
+        total: cards.length,
+        due: cards.filter((card) => new Date(card.due).getTime() <= now).length,
+        fresh: cards.filter((card) => card.state === "new").length,
+      };
+    }),
+  );
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-8 px-5 py-8 sm:py-12">
@@ -59,30 +72,19 @@ export default async function DecksPage() {
             Chưa có bộ thẻ nào. Tạo bộ đầu tiên ở dưới ↓
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
-            {decks.map((d) => (
-              <li key={d.id}>
-                <Link
-                  href={`/decks/${d.id}`}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4 transition-colors hover:border-[var(--color-accent)]/40"
-                >
-                  <div>
-                    <p className="font-medium">{d.name}</p>
-                    {d.description && (
-                      <p className="text-sm text-[var(--color-ink-muted)]">
-                        {d.description}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-[var(--color-ink-muted)]">→</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <DeckGroupsList deckStats={deckStats} />
         )}
       </section>
 
-      <NewDeckForm />
+      <NewDeckForm
+        groupNames={[
+          ...new Set(
+            decks
+              .map((deck) => deck.groupName)
+              .filter((name): name is string => Boolean(name)),
+          ),
+        ]}
+      />
     </main>
   );
 }

@@ -14,6 +14,7 @@ interface DeckRow {
   owner_id: string;
   name: string;
   description: string | null;
+  group_name: string | null;
   source_lang: string;
   target_lang: string;
   created_at: string;
@@ -49,6 +50,7 @@ function deckFromRow(r: DeckRow): Deck {
     ownerId: r.owner_id,
     name: r.name,
     description: r.description,
+    groupName: r.group_name,
     sourceLang: r.source_lang,
     targetLang: r.target_lang,
     createdAt: r.created_at,
@@ -105,7 +107,7 @@ export async function getDeck(
 
 export async function createDeck(
   sb: SupabaseClient,
-  input: { name: string; description?: string },
+  input: { name: string; description?: string; groupName?: string },
 ): Promise<Deck> {
   const { data: user } = await sb.auth.getUser();
   if (!user.user) throw new Error("Not authenticated");
@@ -114,12 +116,25 @@ export async function createDeck(
     .insert({
       name: input.name,
       description: input.description ?? null,
+      group_name: input.groupName?.trim() || null,
       owner_id: user.user.id,
     })
     .select("*")
     .single();
   if (error) throw error;
   return deckFromRow(data as DeckRow);
+}
+
+export async function updateDeckGroup(
+  sb: SupabaseClient,
+  id: string,
+  groupName: string | null,
+): Promise<void> {
+  const { error } = await sb
+    .from("decks")
+    .update({ group_name: groupName?.trim() || null })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function deleteDeck(

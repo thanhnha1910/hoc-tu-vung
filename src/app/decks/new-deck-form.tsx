@@ -5,10 +5,11 @@ import { useState, useTransition } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createDeck } from "@/lib/repo";
 
-export function NewDeckForm() {
+export function NewDeckForm({ groupNames = [] }: { groupNames?: string[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [groupName, setGroupName] = useState("");
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -22,9 +23,11 @@ export function NewDeckForm() {
         const deck = await createDeck(sb, {
           name: name.trim(),
           description: desc.trim() || undefined,
+          groupName: groupName.trim() || undefined,
         });
         setName("");
         setDesc("");
+        setGroupName("");
         setOpen(false);
         router.refresh();
         router.push(`/decks/${deck.id}`);
@@ -59,6 +62,18 @@ export function NewDeckForm() {
         placeholder="Tên bộ thẻ (vd: IELTS Advanced)"
         className="rounded-xl border border-[var(--color-line)] bg-transparent px-3 py-2 text-base outline-none focus:border-[var(--color-accent)]"
       />
+      <input
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        list="new-deck-group-options"
+        placeholder="Nhóm bài (vd: Bài 1)"
+        className="rounded-xl border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+      />
+      <datalist id="new-deck-group-options">
+        {groupNames.map((group) => (
+          <option key={group} value={group} />
+        ))}
+      </datalist>
       <input
         value={desc}
         onChange={(e) => setDesc(e.target.value)}

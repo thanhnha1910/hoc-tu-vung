@@ -2,7 +2,14 @@ import Link from "next/link";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-type Color = "flash" | "learn" | "test" | "blocks" | "blast" | "match";
+type Color =
+  | "flash"
+  | "learn"
+  | "test"
+  | "blocks"
+  | "blast"
+  | "match"
+  | "review";
 
 interface Props {
   href: Route | string;
@@ -120,5 +127,13 @@ export const MatchIcon = (
     <rect x="3" y="5" width="8" height="14" rx="1.5" />
     <rect x="13" y="5" width="8" height="14" rx="1.5" />
     <path d="M11 12h2" />
+  </svg>
+);
+
+export const ReviewIcon = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 11a8 8 0 1 0-2.34 5.66" />
+    <path d="M20 5v6h-6" />
+    <path d="M9 12l2 2 4-5" />
   </svg>
 );

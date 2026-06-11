@@ -11,6 +11,7 @@ export interface Deck {
   ownerId: string;
   name: string;
   description: string | null;
+  groupName: string | null;
   sourceLang: string; // ISO 639-1, e.g. "en"
   targetLang: string; // e.g. "vi"
   createdAt: string;
