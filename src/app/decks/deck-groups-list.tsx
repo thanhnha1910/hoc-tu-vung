@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { updateDeckGroup } from "@/lib/repo";
+import { updateDeck } from "@/lib/repo";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Deck } from "@/lib/types";
 
@@ -27,6 +27,7 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftGroup, setDraftGroup] = useState("");
+  const [draftName, setDraftName] = useState("");
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
     setErr(null);
     setEditingId(deck.id);
     setDraftGroup(deck.groupName ?? "");
+    setDraftName(deck.name ?? "");
   }
 
   function toggleGroup(groupKey: string) {
@@ -54,16 +56,16 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
     });
   }
 
-  function saveGroup(deckId: string) {
+  function saveDeck(deckId: string) {
     setErr(null);
     start(async () => {
       try {
         const sb = createSupabaseBrowserClient();
-        await updateDeckGroup(sb, deckId, draftGroup);
+        await updateDeck(sb, deckId, { name: draftName, groupName: draftGroup });
         setEditingId(null);
         router.refresh();
       } catch (e) {
-        setErr(e instanceof Error ? e.message : "Không đổi được nhóm bài");
+        setErr(e instanceof Error ? e.message : "Không lưu được thay đổi");
       }
     });
   }
@@ -174,23 +176,31 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
                         </div>
 
                         {editingId === deck.id ? (
-                          <div className="grid grid-cols-[1fr_auto] gap-2">
+                          <div className="flex flex-col gap-2">
                             <input
                               autoFocus
-                              list="deck-group-options"
-                              value={draftGroup}
-                              onChange={(e) => setDraftGroup(e.target.value)}
-                              placeholder="Bài 1"
-                              className="min-w-0 rounded-full border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+                              value={draftName}
+                              onChange={(e) => setDraftName(e.target.value)}
+                              placeholder="Tên bộ thẻ"
+                              className="w-full min-w-0 rounded-full border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                             />
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => saveGroup(deck.id)}
-                              className="rounded-full bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-accent-ink)] disabled:opacity-50"
-                            >
-                              Lưu
-                            </button>
+                            <div className="grid grid-cols-[1fr_auto] gap-2">
+                              <input
+                                list="deck-group-options"
+                                value={draftGroup}
+                                onChange={(e) => setDraftGroup(e.target.value)}
+                                placeholder="Tên nhóm (Bài 1, Bài 2...)"
+                                className="min-w-0 rounded-full border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+                              />
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => saveDeck(deck.id)}
+                                className="rounded-full bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-accent-ink)] disabled:opacity-50"
+                              >
+                                Lưu
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <button
@@ -198,7 +208,7 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
                             onClick={() => beginEdit(deck)}
                             className="rounded-full border border-dashed border-[var(--color-line)] px-3 py-2 text-sm text-[var(--color-ink-muted)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                           >
-                            Đổi nhóm
+                            Sửa
                           </button>
                         )}
                       </div>

@@ -125,14 +125,18 @@ export async function createDeck(
   return deckFromRow(data as DeckRow);
 }
 
-export async function updateDeckGroup(
+export async function updateDeck(
   sb: SupabaseClient,
   id: string,
-  groupName: string | null,
+  input: { name?: string; groupName?: string | null },
 ): Promise<void> {
+  const payload: any = {};
+  if (input.name !== undefined) payload.name = input.name;
+  if (input.groupName !== undefined) payload.group_name = input.groupName?.trim() || null;
+
   const { error } = await sb
     .from("decks")
-    .update({ group_name: groupName?.trim() || null })
+    .update(payload)
     .eq("id", id);
   if (error) throw error;
 }
