@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { countDue, listCards, listDecks } from "@/lib/repo";
+import { countDue, listCards, listDecks, listDeckGroups } from "@/lib/repo";
 import { DeckGroupsList } from "./deck-groups-list";
+import { DeckGroupsManager } from "./deck-groups-manager";
 import { NewDeckForm } from "./new-deck-form";
 import { SignOutButton } from "./signout-button";
 
@@ -11,7 +12,11 @@ export default async function DecksPage() {
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect("/login");
 
-  const [decks, dueCount] = await Promise.all([listDecks(sb), countDue(sb)]);
+  const [decks, dueCount, deckGroups] = await Promise.all([
+    listDecks(sb), 
+    countDue(sb),
+    listDeckGroups(sb)
+  ]);
   const deckStats = await Promise.all(
     decks.map(async (deck) => {
       const cards = await listCards(sb, deck.id);
@@ -72,19 +77,14 @@ export default async function DecksPage() {
             Chưa có bộ thẻ nào. Tạo bộ đầu tiên ở dưới ↓
           </p>
         ) : (
-          <DeckGroupsList deckStats={deckStats} />
+          <DeckGroupsList deckStats={deckStats} deckGroups={deckGroups} />
         )}
       </section>
 
-      <NewDeckForm
-        groupNames={[
-          ...new Set(
-            decks
-              .map((deck) => deck.groupName)
-              .filter((name): name is string => Boolean(name)),
-          ),
-        ]}
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <NewDeckForm deckGroups={deckGroups} />
+        <DeckGroupsManager groups={deckGroups} />
+      </div>
     </main>
   );
 }

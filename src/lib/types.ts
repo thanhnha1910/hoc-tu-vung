@@ -18,6 +18,13 @@ export interface Deck {
   updatedAt: string;
 }
 
+export interface DeckGroup {
+  id: string;
+  ownerId: string;
+  name: string;
+  createdAt: string;
+}
+
 /** A single flashcard inside a deck. */
 export interface Card {
   id: string;

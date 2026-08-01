@@ -6,7 +6,7 @@
  * Server Components (server client) and Client Components (browser client).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Card, Deck, LearningMode, Rating, ReviewLog } from "./types";
+import type { Card, Deck, DeckGroup, LearningMode, Rating, ReviewLog } from "./types";
 
 // ---------- DB row shapes (snake_case) ----------
 interface DeckRow {
@@ -19,6 +19,13 @@ interface DeckRow {
   target_lang: string;
   created_at: string;
   updated_at: string;
+}
+
+interface DeckGroupRow {
+  id: string;
+  owner_id: string;
+  name: string;
+  created_at: string;
 }
 
 interface CardRow {
@@ -55,6 +62,15 @@ function deckFromRow(r: DeckRow): Deck {
     targetLang: r.target_lang,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+  };
+}
+
+function deckGroupFromRow(r: DeckGroupRow): DeckGroup {
+  return {
+    id: r.id,
+    ownerId: r.owner_id,
+    name: r.name,
+    createdAt: r.created_at,
   };
 }
 
@@ -146,6 +162,42 @@ export async function deleteDeck(
   id: string,
 ): Promise<void> {
   const { error } = await sb.from("decks").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- Deck Groups ----------
+export async function listDeckGroups(sb: SupabaseClient): Promise<DeckGroup[]> {
+  const { data, error } = await sb
+    .from("deck_groups")
+    .select("*")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data as DeckGroupRow[]).map(deckGroupFromRow);
+}
+
+export async function createDeckGroup(
+  sb: SupabaseClient,
+  name: string,
+): Promise<DeckGroup> {
+  const { data: user } = await sb.auth.getUser();
+  if (!user.user) throw new Error("Not authenticated");
+  const { data, error } = await sb
+    .from("deck_groups")
+    .insert({
+      name: name.trim(),
+      owner_id: user.user.id,
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return deckGroupFromRow(data as DeckGroupRow);
+}
+
+export async function deleteDeckGroup(
+  sb: SupabaseClient,
+  id: string,
+): Promise<void> {
+  const { error } = await sb.from("deck_groups").delete().eq("id", id);
   if (error) throw error;
 }
 

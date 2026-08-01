@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { updateDeck } from "@/lib/repo";
+import { updateDeck, deleteDeck } from "@/lib/repo";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { Deck } from "@/lib/types";
+import type { Deck, DeckGroup as IDeckGroup } from "@/lib/types";
 
 export interface DeckStat {
   deck: Deck;
@@ -23,7 +23,7 @@ interface DeckGroup {
   due: number;
 }
 
-export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
+export function DeckGroupsList({ deckStats, deckGroups = [] }: { deckStats: DeckStat[], deckGroups?: IDeckGroup[] }) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftGroup, setDraftGroup] = useState("");
@@ -33,9 +33,6 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
   const [err, setErr] = useState<string | null>(null);
 
   const groups = useMemo(() => groupDecks(deckStats), [deckStats]);
-  const groupNames = groups
-    .map((group) => group.name)
-    .filter((name): name is string => Boolean(name));
 
   function beginEdit(deck: Deck) {
     setErr(null);
@@ -70,14 +67,23 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
     });
   }
 
+  function handleDelete(deckId: string) {
+    if (!confirm("Bạn có chắc chắn muốn xóa bộ thẻ này không? Tất cả thẻ bên trong cũng sẽ bị xóa!")) return;
+    setErr(null);
+    start(async () => {
+      try {
+        const sb = createSupabaseBrowserClient();
+        await deleteDeck(sb, deckId);
+        if (editingId === deckId) setEditingId(null);
+        router.refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Không xóa được bộ thẻ");
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      <datalist id="deck-group-options">
-        {groupNames.map((name) => (
-          <option key={name} value={name} />
-        ))}
-      </datalist>
-
       {err && <p className="text-sm text-[var(--color-bad)]">{err}</p>}
 
       {groups.map((group) => {
@@ -184,14 +190,17 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
                               placeholder="Tên bộ thẻ"
                               className="w-full min-w-0 rounded-full border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
                             />
-                            <div className="grid grid-cols-[1fr_auto] gap-2">
-                              <input
-                                list="deck-group-options"
+                            <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+                              <select
                                 value={draftGroup}
                                 onChange={(e) => setDraftGroup(e.target.value)}
-                                placeholder="Tên nhóm (Bài 1, Bài 2...)"
-                                className="min-w-0 rounded-full border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-                              />
+                                className="min-w-0 rounded-full border border-[var(--color-line)] bg-[var(--color-bg-elev)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
+                              >
+                                <option value="">-- Không nhóm --</option>
+                                {deckGroups.map(g => (
+                                  <option key={g.id} value={g.name}>{g.name}</option>
+                                ))}
+                              </select>
                               <button
                                 type="button"
                                 disabled={pending}
@@ -199,6 +208,14 @@ export function DeckGroupsList({ deckStats }: { deckStats: DeckStat[] }) {
                                 className="rounded-full bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[var(--color-accent-ink)] disabled:opacity-50"
                               >
                                 Lưu
+                              </button>
+                              <button
+                                type="button"
+                                disabled={pending}
+                                onClick={() => handleDelete(deck.id)}
+                                className="rounded-full border border-[var(--color-bad)] px-3 py-2 text-sm font-medium text-[var(--color-bad)] transition-colors hover:bg-[var(--color-bad)] hover:text-white disabled:opacity-50"
+                              >
+                                Xóa
                               </button>
                             </div>
                           </div>

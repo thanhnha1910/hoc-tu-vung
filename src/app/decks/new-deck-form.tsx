@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createDeck } from "@/lib/repo";
+import type { DeckGroup } from "@/lib/types";
 
-export function NewDeckForm({ groupNames = [] }: { groupNames?: string[] }) {
+export function NewDeckForm({ deckGroups = [] }: { deckGroups?: DeckGroup[] }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -62,18 +63,18 @@ export function NewDeckForm({ groupNames = [] }: { groupNames?: string[] }) {
         placeholder="Tên bộ thẻ (vd: IELTS Advanced)"
         className="rounded-xl border border-[var(--color-line)] bg-transparent px-3 py-2 text-base outline-none focus:border-[var(--color-accent)]"
       />
-      <input
+      <select
         value={groupName}
         onChange={(e) => setGroupName(e.target.value)}
-        list="new-deck-group-options"
-        placeholder="Nhóm bài (vd: Bài 1)"
         className="rounded-xl border border-[var(--color-line)] bg-transparent px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)]"
-      />
-      <datalist id="new-deck-group-options">
-        {groupNames.map((group) => (
-          <option key={group} value={group} />
+      >
+        <option value="">-- Không chọn nhóm (để trống) --</option>
+        {deckGroups.map((group) => (
+          <option key={group.id} value={group.name}>
+            {group.name}
+          </option>
         ))}
-      </datalist>
+      </select>
       <input
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
