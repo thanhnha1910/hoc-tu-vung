@@ -58,11 +58,9 @@ export default async function StudyPage({
     ? (rawMode as Mode)
     : "flashcards";
 
-  const now = Date.now();
-  const queue =
-    mode === "review"
-      ? allCards.filter((c) => new Date(c.due).getTime() <= now)
-      : allCards;
+  if (mode === "review") {
+    redirect(`/study/daily?deckId=${deck.id}`);
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-4 px-4 py-5 sm:py-8">
@@ -78,7 +76,7 @@ export default async function StudyPage({
         </span>
       </nav>
 
-      <ModeBody mode={mode} cards={queue} deckId={deckId} />
+      <ModeBody mode={mode} cards={allCards} deckId={deckId} />
     </main>
   );
 }
@@ -95,9 +93,10 @@ function ModeBody({
   if (cards.length === 0) return <EmptyState mode={mode} deckId={deckId} />;
 
   switch (mode) {
-    case "flashcards":
     case "review":
-      return <FlashcardsSession initialCards={cards} mode={mode} />;
+      return null;
+    case "flashcards":
+      return <FlashcardsSession initialCards={cards} />;
     case "learn":
       return <LearnSession initialCards={cards} />;
     case "match":

@@ -2,12 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Card, Rating } from "@/lib/types";
-import { RATING } from "@/lib/types";
-import { gradeCard } from "@/lib/srs";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { insertReviewLog, updateCardSrs } from "@/lib/repo";
+import { useEffect, useMemo, useState } from "react";
+import type { Card } from "@/lib/types";
 import { useStudySettings } from "@/lib/settings";
 import { buildQuiz, type Question } from "@/lib/quiz-gen";
 import { QuestionView, type Feedback } from "./qtype";
@@ -61,36 +57,6 @@ export function TestSession({ cards, config, deckId, onRestart }: Props) {
   }, [secondsLeft, submitted]);
 
   const current = quiz[idx];
-
-  // ─── Persist FSRS for the whole batch when submitted ───
-  // Per-card: keep the WORST rating across all questions for that card.
-  const persistFsrs = useCallback(
-    (finalAnswered: AnsweredQ[]) => {
-      const sb = createSupabaseBrowserClient();
-      const perCard = new Map<string, Rating>();
-      for (const a of finalAnswered) {
-        const r = a.correct ? RATING.GOOD : RATING.AGAIN;
-        const prev = perCard.get(a.question.card.id);
-        // Keep worst (lower number = harder)
-        if (prev === undefined || r < prev) perCard.set(a.question.card.id, r);
-      }
-      const cardById = new Map(cards.map((c) => [c.id, c]));
-      for (const [id, rating] of perCard) {
-        const c = cardById.get(id);
-        if (!c) continue;
-        const { card: next, log } = gradeCard(c, rating, "test");
-        void updateCardSrs(sb, next).catch(console.error);
-        void insertReviewLog(sb, log).catch(console.error);
-      }
-    },
-    [cards],
-  );
-
-  useEffect(() => {
-    if (submitted && answered.length > 0) {
-      persistFsrs(answered);
-    }
-  }, [submitted, answered, persistFsrs]);
 
   function onAnswer(correct: boolean, given?: string) {
     if (feedback || !current) return;

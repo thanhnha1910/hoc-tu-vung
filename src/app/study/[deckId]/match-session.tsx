@@ -3,11 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Card, Rating } from "@/lib/types";
-import { RATING } from "@/lib/types";
-import { gradeCard } from "@/lib/srs";
-import { insertReviewLog, updateCardSrs } from "@/lib/repo";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { Card } from "@/lib/types";
 import { speak, unlock } from "@/lib/tts";
 import { useStudySettings } from "@/lib/settings";
 import { getBestTime, setBestTime } from "@/lib/best-times";
@@ -37,13 +33,6 @@ function shuffleArray<T>(arr: T[]): T[] {
 const BATCH_SIZE = 6;
 const PENALTY_MS = 1000; // +1 second per wrong pair
 
-/** Anki-style per-card rating from in-game error count. */
-function ratingForCard(errorsForThisCard: number): Rating {
-  if (errorsForThisCard === 0) return RATING.GOOD;
-  if (errorsForThisCard === 1) return RATING.HARD;
-  return RATING.AGAIN;
-}
-
 export function MatchSession({ initialCards, deckId }: Props) {
   const router = useRouter();
   const [settings, updateSettings] = useStudySettings();
@@ -70,9 +59,6 @@ export function MatchSession({ initialCards, deckId }: Props) {
   const [selected, setSelected] = useState<Tile | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [wrongPair, setWrongPair] = useState<[string, string] | null>(null);
-
-  /** Track errors per cardId, so FSRS rating is per-card not batch. */
-  const [errorsPerCard, setErrorsPerCard] = useState<Record<string, number>>({});
 
   /** Penalty time accumulated from wrong matches (in milliseconds). */
   const [penaltyMs, setPenaltyMs] = useState(0);
@@ -110,17 +96,8 @@ export function MatchSession({ initialCards, deckId }: Props) {
         setBestBeat(beat);
       }
 
-      // Persist FSRS — per card, not batch average
-      const sb = createSupabaseBrowserClient();
-      for (const c of batch) {
-        const errs = errorsPerCard[c.id] ?? 0;
-        const rating = ratingForCard(errs);
-        const { card: next, log } = gradeCard(c, rating, "match");
-        void updateCardSrs(sb, next).catch(console.error);
-        void insertReviewLog(sb, log).catch(console.error);
-      }
     }
-  }, [matched, batch, errorsPerCard, finished, penaltyMs, deckId]);
+  }, [matched, batch, finished, penaltyMs, deckId]);
 
   function onTilePick(tile: Tile) {
     if (matched.has(tile.cardId) || wrongPair) return;
@@ -145,14 +122,8 @@ export function MatchSession({ initialCards, deckId }: Props) {
       setMatched((m) => new Set(m).add(tile.cardId));
       setSelected(null);
     } else {
-      // Wrong match — +1s penalty, attribute error to BOTH cards involved
+      // Wrong match — add a small time penalty.
       setPenaltyMs((p) => p + PENALTY_MS);
-      setErrorsPerCard((errs) => {
-        const next = { ...errs };
-        next[selected.cardId] = (next[selected.cardId] ?? 0) + 1;
-        next[tile.cardId] = (next[tile.cardId] ?? 0) + 1;
-        return next;
-      });
       setWrongPair([selected.id, tile.id]);
       setTimeout(() => {
         setWrongPair(null);

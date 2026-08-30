@@ -27,6 +27,7 @@ export default function LoginPage() {
 
   async function loginWithGoogle() {
     setBusy(true);
+    setError(null);
     const sb = createSupabaseBrowserClient();
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",
@@ -43,7 +44,7 @@ export default function LoginPage() {
       <header>
         <h1 className="text-3xl font-semibold">Đăng nhập</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-muted)]">
-          Bộ thẻ của bạn sẽ đồng bộ giữa các thiết bị.
+          Đăng nhập một lần. Bộ thẻ và phiên học sẽ được giữ trên thiết bị này.
         </p>
       </header>
 
@@ -93,6 +94,7 @@ export default function LoginPage() {
             <span className="text-[var(--color-ink-muted)]">Email</span>
             <input
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -113,6 +115,11 @@ export default function LoginPage() {
       {error && (
         <p className="text-sm text-[var(--color-bad)]">⚠ {error}</p>
       )}
+
+      <p className="text-center text-xs leading-relaxed text-[var(--color-ink-muted)]">
+        Bạn chỉ cần đăng nhập lại khi chủ động đăng xuất, xóa dữ liệu trình duyệt
+        hoặc phiên bị quản trị viên thu hồi.
+      </p>
     </main>
   );
 }

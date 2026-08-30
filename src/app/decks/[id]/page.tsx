@@ -7,7 +7,6 @@ import {
   LearnIcon,
   MatchIcon,
   ModeTile,
-  ReviewIcon,
   TestIcon,
 } from "@/components/mode-tile";
 import { AddCardForm } from "./add-card-form";
@@ -45,10 +44,10 @@ export default async function DeckPage({
         </Link>
         {dueNow > 0 && (
           <Link
-            href={`/study/${deck.id}?mode=review`}
-            className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 text-xs font-semibold text-[var(--color-accent-ink)]"
+            href={`/study/daily?deckId=${deck.id}`}
+            className="tap flex items-center rounded-full bg-[var(--color-accent-soft)] px-4 text-xs font-semibold text-[var(--color-accent)]"
           >
-            Ôn hôm nay · {dueNow}
+            {dueNow} thẻ đến hạn
           </Link>
         )}
       </nav>
@@ -80,43 +79,63 @@ export default async function DeckPage({
         </div>
       </header>
 
-      {/* Mode grid */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <ModeTile
-          href={`/study/${deck.id}?mode=flashcards`}
-          label="Thẻ ghi nhớ"
-          color="flash"
-          icon={FlashIcon}
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=learn`}
-          label="Học"
-          color="learn"
-          icon={LearnIcon}
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=review`}
-          label="Ôn tập"
-          color="review"
-          icon={ReviewIcon}
-          disabled={dueNow === 0}
-          badge={dueNow > 0 ? String(dueNow) : undefined}
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=test`}
-          label="Kiểm tra"
-          color="test"
-          icon={TestIcon}
-          disabled={cards.length < 4}
-        />
-        <ModeTile
-          href={`/study/${deck.id}?mode=match`}
-          label="Ghép thẻ"
-          color="match"
-          icon={MatchIcon}
-          disabled={!enoughForMatch}
-        />
-      </section>
+      <Link
+        href={`/study/daily?deckId=${deck.id}`}
+        className="rounded-[1.75rem] border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-5 shadow-[var(--shadow-card)] active:scale-[0.99]"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-accent)]">
+              Học tập trung
+            </p>
+            <h2 className="mt-1 text-xl font-bold">Học bộ này trong 10 phút</h2>
+            <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
+              Nhớ chủ động, nghe và viết trong một phiên duy nhất.
+            </p>
+          </div>
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--color-accent)] text-xl text-[var(--color-accent-ink)]">
+            →
+          </span>
+        </div>
+      </Link>
+
+      {/* Secondary practice modes do not alter the FSRS review schedule. */}
+      <details className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold">
+          Luyện thêm
+          <span className="ml-2 font-normal text-[var(--color-ink-muted)]">
+            · không thay đổi lịch ôn
+          </span>
+        </summary>
+        <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <ModeTile
+            href={`/study/${deck.id}?mode=flashcards`}
+            label="Thẻ ghi nhớ"
+            color="flash"
+            icon={FlashIcon}
+          />
+          <ModeTile
+            href={`/study/${deck.id}?mode=learn`}
+            label="Bài luyện"
+            color="learn"
+            icon={LearnIcon}
+          />
+          <ModeTile
+            href={`/study/${deck.id}?mode=test`}
+            label="Kiểm tra"
+            color="test"
+            icon={TestIcon}
+            disabled={cards.length < 4}
+          />
+          <ModeTile
+            href={`/study/${deck.id}?mode=match`}
+            label="Ghép thẻ"
+            color="match"
+            icon={MatchIcon}
+            disabled={!enoughForMatch}
+          />
+        </section>
+      </details>
 
       {/* Quick add + import */}
       <div className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4">

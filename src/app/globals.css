@@ -1,19 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-  /* Quizlet-accurate palette — deep navy bg, indigo accent, vivid mode colors */
-  --color-bg: oklch(0.13 0.05 275);
-  --color-bg-elev: oklch(0.19 0.05 275);
-  --color-bg-elev-2: oklch(0.25 0.05 275);
-  --color-ink: oklch(0.98 0.01 270);
-  --color-ink-muted: oklch(0.70 0.04 275);
-  --color-line: oklch(0.30 0.04 275);
-  --color-accent: oklch(0.74 0.16 290);      /* lavender/indigo — Quizlet's "Bạn không biết?" */
-  --color-accent-ink: oklch(0.98 0.01 270);
-  --color-good: oklch(0.72 0.18 150);
-  --color-warn: oklch(0.82 0.15 80);
-  --color-bad: oklch(0.68 0.21 25);
-  --color-easy: oklch(0.70 0.16 245);
+  /* Light-first focus palette. Dark values are applied from system settings. */
+  --color-bg: oklch(0.975 0.008 270);
+  --color-bg-elev: oklch(1 0 0);
+  --color-bg-elev-2: oklch(0.95 0.014 270);
+  --color-ink: oklch(0.22 0.035 275);
+  --color-ink-muted: oklch(0.51 0.035 275);
+  --color-line: oklch(0.89 0.018 270);
+  --color-accent: oklch(0.56 0.19 278);
+  --color-accent-soft: oklch(0.93 0.045 278);
+  --color-accent-ink: oklch(0.99 0.005 270);
+  --color-good: oklch(0.53 0.16 150);
+  --color-good-soft: oklch(0.93 0.055 150);
+  --color-warn: oklch(0.61 0.16 75);
+  --color-warn-soft: oklch(0.94 0.06 80);
+  --color-bad: oklch(0.57 0.2 25);
+  --color-bad-soft: oklch(0.94 0.05 25);
+  --color-easy: oklch(0.56 0.16 245);
 
   /* Mode-specific tile colors */
   --color-mode-flash: oklch(0.72 0.18 285);    /* indigo */
@@ -30,12 +34,36 @@
     "Times New Roman", serif;
 
   --radius-card: 1.5rem;
+  --shadow-card: 0 18px 50px -28px rgb(43 39 76 / 0.28);
+  --shadow-float: 0 16px 45px -18px rgb(43 39 76 / 0.32);
 }
 
-/* Force dark Quizlet palette regardless of system preference */
-
 html {
-  color-scheme: dark;
+  color-scheme: light dark;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: oklch(0.14 0.035 275);
+    --color-bg-elev: oklch(0.19 0.04 275);
+    --color-bg-elev-2: oklch(0.24 0.04 275);
+    --color-ink: oklch(0.97 0.01 270);
+    --color-ink-muted: oklch(0.71 0.035 275);
+    --color-line: oklch(0.3 0.035 275);
+    --color-accent: oklch(0.73 0.16 285);
+    --color-accent-soft: oklch(0.27 0.07 282);
+    --color-accent-ink: oklch(0.98 0.01 270);
+    --color-good: oklch(0.72 0.17 150);
+    --color-good-soft: oklch(0.25 0.06 150);
+    --color-warn: oklch(0.8 0.15 80);
+    --color-warn-soft: oklch(0.27 0.055 75);
+    --color-bad: oklch(0.7 0.2 25);
+    --color-bad-soft: oklch(0.27 0.065 25);
+    --color-easy: oklch(0.7 0.15 245);
+    --shadow-card: 0 24px 60px -28px rgb(0 0 0 / 0.65);
+    --shadow-float: 0 18px 50px -18px rgb(0 0 0 / 0.68);
+  }
 }
 
 html,
@@ -112,6 +140,27 @@ select {
   mix-blend-mode: overlay;
   opacity: 0.5;
   pointer-events: none;
+}
+
+@media (max-width: 639px) {
+  .card-grain {
+    display: none;
+  }
+
+  .card-shadow {
+    box-shadow: 0 14px 32px -22px rgb(0 0 0 / 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Radial vignette — warm spot in the center of the card */
