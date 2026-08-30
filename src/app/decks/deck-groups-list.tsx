@@ -31,6 +31,9 @@ export function DeckGroupsList({ deckStats, deckGroups = [] }: { deckStats: Deck
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [priorityIds, setPriorityIds] = useState<Set<string>>(
+    () => new Set(deckStats.filter(({ deck }) => deck.isPriority).map(({ deck }) => deck.id)),
+  );
 
   const groups = useMemo(() => groupDecks(deckStats), [deckStats]);
 
@@ -82,6 +85,32 @@ export function DeckGroupsList({ deckStats, deckGroups = [] }: { deckStats: Deck
     });
   }
 
+  function togglePriority(deck: Deck) {
+    const nextPriority = !priorityIds.has(deck.id);
+    setPriorityIds((current) => {
+      const next = new Set(current);
+      if (nextPriority) next.add(deck.id);
+      else next.delete(deck.id);
+      return next;
+    });
+    setErr(null);
+    start(async () => {
+      try {
+        const sb = createSupabaseBrowserClient();
+        await updateDeck(sb, deck.id, { isPriority: nextPriority });
+        router.refresh();
+      } catch (error) {
+        setPriorityIds((current) => {
+          const next = new Set(current);
+          if (nextPriority) next.delete(deck.id);
+          else next.add(deck.id);
+          return next;
+        });
+        setErr(error instanceof Error ? error.message : "Không cập nhật được ưu tiên");
+      }
+    });
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {err && <p className="text-sm text-[var(--color-bad)]">{err}</p>}
@@ -129,11 +158,27 @@ export function DeckGroupsList({ deckStats, deckGroups = [] }: { deckStats: Deck
                     className="rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-elev)]/70 p-4"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                      <Link
-                        href={`/decks/${deck.id}`}
-                        className="min-w-0 flex-1"
-                      >
-                        <p className="break-words font-medium">{deck.name}</p>
+                      <div className="flex min-w-0 flex-1 items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePriority(deck)}
+                          disabled={pending}
+                          aria-pressed={priorityIds.has(deck.id)}
+                          aria-label={priorityIds.has(deck.id) ? `Bỏ ưu tiên ${deck.name}` : `Ưu tiên ${deck.name}`}
+                          className={
+                            "tap flex shrink-0 items-center justify-center rounded-xl text-xl active:scale-90 " +
+                            (priorityIds.has(deck.id)
+                              ? "bg-[var(--color-warn-soft)] text-[var(--color-warn)]"
+                              : "text-[var(--color-ink-muted)]")
+                          }
+                        >
+                          {priorityIds.has(deck.id) ? "★" : "☆"}
+                        </button>
+                        <Link
+                          href={`/decks/${deck.id}`}
+                          className="min-w-0 flex-1 py-1"
+                        >
+                          <p className="break-words font-semibold">{deck.name}</p>
                         {deck.description && (
                           <p className="mt-1 break-words text-sm text-[var(--color-ink-muted)]">
                             {deck.description}
@@ -158,26 +203,22 @@ export function DeckGroupsList({ deckStats, deckGroups = [] }: { deckStats: Deck
                             <b className="text-current">{due}</b> cần ôn
                           </span>
                         </div>
-                      </Link>
+                        </Link>
+                      </div>
 
                       <div className="flex flex-col gap-2 sm:w-64">
                         <div className="grid grid-cols-2 gap-2">
                           <Link
-                            href={`/study/${deck.id}?mode=flashcards`}
+                            href={`/decks/${deck.id}`}
                             className="rounded-full border border-[var(--color-line)] px-4 py-2 text-center text-sm font-medium transition-colors hover:border-[var(--color-accent)]"
                           >
-                            Học
+                            Mở bộ
                           </Link>
                           <Link
-                            href={`/study/${deck.id}?mode=review`}
-                            aria-disabled={due === 0}
-                            className={
-                              due === 0
-                                ? "pointer-events-none rounded-full border border-[var(--color-line)] px-4 py-2 text-center text-sm font-medium text-[var(--color-ink-muted)] opacity-50"
-                                : "rounded-full bg-[var(--color-accent)] px-4 py-2 text-center text-sm font-medium text-[var(--color-accent-ink)]"
-                            }
+                            href={`/study/daily?deckId=${deck.id}`}
+                            className="rounded-full bg-[var(--color-accent)] px-4 py-2 text-center text-sm font-medium text-[var(--color-accent-ink)]"
                           >
-                            Ôn
+                            Học 10 phút
                           </Link>
                         </div>
 

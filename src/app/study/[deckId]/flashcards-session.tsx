@@ -2,19 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Card, LearningMode, Rating } from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Card, Rating } from "@/lib/types";
 import { RATING, RATING_LABEL } from "@/lib/types";
-import { gradeCard, previewIntervals } from "@/lib/srs";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { insertReviewLog, updateCardSrs } from "@/lib/repo";
 import { speak, unlock } from "@/lib/tts";
 import { useStudySettings } from "@/lib/settings";
 import { SettingsPanel } from "./settings-panel";
 
 interface Props {
   initialCards: Card[];
-  mode: LearningMode;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -26,7 +22,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export function FlashcardsSession({ initialCards, mode }: Props) {
+export function FlashcardsSession({ initialCards }: Props) {
   const router = useRouter();
   const [settings, updateSettings] = useStudySettings();
   const [queue, setQueue] = useState<Card[]>(initialCards);
@@ -83,24 +79,13 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
     speak(card.term, settings.speechRate);
   }, [card, frontIsEnglish, settings.autoPlay, settings.speechRate]);
 
-  const intervals = useMemo(
-    () => (card ? previewIntervals(card) : null),
-    [card],
-  );
-
   const speakTerm = useCallback(() => {
     if (card) speak(card.term, settings.speechRate);
   }, [card, settings.speechRate]);
 
   const grade = useCallback(
-    async (rating: Rating) => {
+    (rating: Rating) => {
       if (!card) return;
-      const sb = createSupabaseBrowserClient();
-      const { card: next, log } = gradeCard(card, rating, mode);
-
-      void updateCardSrs(sb, next).catch(console.error);
-      void insertReviewLog(sb, log).catch(console.error);
-
       setStats((s) => ({
         again: s.again + (rating === 1 ? 1 : 0),
         hard: s.hard + (rating === 2 ? 1 : 0),
@@ -118,7 +103,7 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         setQueue((q) => [
           ...q.slice(0, index),
           ...q.slice(index + 1),
-          { ...next },
+          { ...card },
         ]);
       } else if (index + 1 >= queue.length) {
         setFinished(true);
@@ -126,7 +111,7 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         setIndex((i) => i + 1);
       }
     },
-    [card, mode, index, queue.length],
+    [card, index, queue.length],
   );
 
   // Keyboard shortcuts
@@ -365,25 +350,21 @@ export function FlashcardsSession({ initialCards, mode }: Props) {
         <RatingBtn
           rating={RATING.AGAIN}
           color="bad"
-          interval={intervals?.[1].dueIn}
           onClick={() => grade(RATING.AGAIN)}
         />
         <RatingBtn
           rating={RATING.HARD}
           color="warn"
-          interval={intervals?.[2].dueIn}
           onClick={() => grade(RATING.HARD)}
         />
         <RatingBtn
           rating={RATING.GOOD}
           color="good"
-          interval={intervals?.[3].dueIn}
           onClick={() => grade(RATING.GOOD)}
         />
         <RatingBtn
           rating={RATING.EASY}
           color="easy"
-          interval={intervals?.[4].dueIn}
           onClick={() => grade(RATING.EASY)}
         />
       </div>
@@ -492,12 +473,10 @@ function CornerTick({
 function RatingBtn({
   rating,
   color,
-  interval,
   onClick,
 }: {
   rating: Rating;
   color: "bad" | "warn" | "good" | "easy";
-  interval: string | undefined;
   onClick: () => void;
 }) {
   const colorVar = {
@@ -523,11 +502,6 @@ function RatingBtn({
       <span className="text-xs leading-tight sm:text-base">
         {RATING_LABEL[rating]}
       </span>
-      {interval && (
-        <span className="text-[9px] font-normal opacity-70 sm:text-xs">
-          {interval}
-        </span>
-      )}
     </button>
   );
 }

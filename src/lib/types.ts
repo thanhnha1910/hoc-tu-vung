@@ -12,6 +12,7 @@ export interface Deck {
   name: string;
   description: string | null;
   groupName: string | null;
+  isPriority: boolean;
   sourceLang: string; // ISO 639-1, e.g. "en"
   targetLang: string; // e.g. "vi"
   createdAt: string;
@@ -72,6 +73,7 @@ export interface ReviewLog {
 }
 
 export type LearningMode =
+  | "daily"
   | "flashcards"
   | "learn"
   | "match"

@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 interface Props {
   searchParams: Promise<{ code?: string; next?: string }>;
@@ -13,6 +16,10 @@ export default async function HomePage({ searchParams }: Props) {
     const qs = new URLSearchParams({ code, ...(next ? { next } : {}) });
     redirect(`/auth/callback?${qs.toString()}`);
   }
+
+  const sb = await createSupabaseServerClient();
+  const { data } = await sb.auth.getUser();
+  if (data.user) redirect("/decks");
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-10 px-5 py-10 sm:py-16">

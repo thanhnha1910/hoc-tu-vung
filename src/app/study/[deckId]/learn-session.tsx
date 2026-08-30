@@ -2,12 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Card, Rating } from "@/lib/types";
-import { RATING } from "@/lib/types";
-import { gradeCard } from "@/lib/srs";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { insertReviewLog, updateCardSrs } from "@/lib/repo";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Card } from "@/lib/types";
 import { speak } from "@/lib/tts";
 import { useStudySettings } from "@/lib/settings";
 import {
@@ -28,8 +24,6 @@ interface CardState {
   card: Card;
   fam: number;
   lapses: number;
-  /** True once we've written an FSRS log for this card (avoid double-logging). */
-  fsrsWritten: boolean;
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
@@ -39,17 +33,6 @@ function shuffleArray<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-/** Anki-style: map session performance → FSRS rating. */
-function ratingFor(state: CardState, finishedMastery: boolean): Rating {
-  if (finishedMastery) {
-    if (state.lapses === 0) return RATING.GOOD;
-    if (state.lapses <= 2) return RATING.HARD;
-    return RATING.AGAIN;
-  }
-  if (state.fam >= 3) return RATING.HARD;
-  return RATING.AGAIN;
 }
 
 export function LearnSession({ initialCards }: Props) {
@@ -64,7 +47,6 @@ export function LearnSession({ initialCards }: Props) {
       card: c,
       fam: 0,
       lapses: 0,
-      fsrsWritten: false,
     }));
   });
   const [cursor, setCursor] = useState(0);
@@ -105,19 +87,6 @@ export function LearnSession({ initialCards }: Props) {
   // speak after the user answers (see onAnswer) or when they tap the speaker
   // icon explicitly.
 
-  // ─── Persist FSRS for one card ───
-  const persistFsrsForCard = useCallback(
-    (state: CardState, mastered: boolean) => {
-      if (state.fsrsWritten) return;
-      const sb = createSupabaseBrowserClient();
-      const rating = ratingFor(state, mastered);
-      const { card: next, log } = gradeCard(state.card, rating, "learn");
-      void updateCardSrs(sb, next).catch(console.error);
-      void insertReviewLog(sb, log).catch(console.error);
-    },
-    [],
-  );
-
   // ─── On answer: defer state mutation until feedback clears (BUG FIX) ───
   // Previously fam ticked immediately, so the question useMemo regenerated with
   // a different question type while feedback was still being shown.
@@ -133,15 +102,11 @@ export function LearnSession({ initialCards }: Props) {
           ? Math.min(MASTERY_LEVEL, s.fam + 1)
           : Math.max(0, s.fam - 1);
         const nextLapses = s.lapses + (correct ? 0 : 1);
-        const justMastered =
-          nextFam >= MASTERY_LEVEL && !s.fsrsWritten;
         const newState: CardState = {
           ...s,
           fam: nextFam,
           lapses: nextLapses,
-          fsrsWritten: justMastered ? true : s.fsrsWritten,
         };
-        if (justMastered) persistFsrsForCard(newState, true);
         return newState;
       }),
     );
@@ -188,19 +153,12 @@ export function LearnSession({ initialCards }: Props) {
     }, 1800);
   }
 
-  // ─── Persist remaining unmastered cards when unmounting ───
   useEffect(() => {
     return () => {
       if (advanceTimerRef.current !== null) {
         window.clearTimeout(advanceTimerRef.current);
       }
-      for (const s of states) {
-        if (!s.fsrsWritten) {
-          persistFsrsForCard(s, false);
-        }
-      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── End screen ───

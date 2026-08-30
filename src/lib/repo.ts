@@ -15,6 +15,7 @@ interface DeckRow {
   name: string;
   description: string | null;
   group_name: string | null;
+  is_priority: boolean;
   source_lang: string;
   target_lang: string;
   created_at: string;
@@ -58,6 +59,7 @@ function deckFromRow(r: DeckRow): Deck {
     name: r.name,
     description: r.description,
     groupName: r.group_name,
+    isPriority: r.is_priority ?? false,
     sourceLang: r.source_lang,
     targetLang: r.target_lang,
     createdAt: r.created_at,
@@ -141,14 +143,52 @@ export async function createDeck(
   return deckFromRow(data as DeckRow);
 }
 
+export interface DeckCardStat {
+  deckId: string;
+  total: number;
+  due: number;
+  fresh: number;
+}
+
+/** Load dashboard counts in one cards query instead of one query per deck. */
+export async function listDeckCardStats(
+  sb: SupabaseClient,
+  now: Date = new Date(),
+): Promise<DeckCardStat[]> {
+  const { data, error } = await sb
+    .from("cards")
+    .select("deck_id,state,due");
+  if (error) throw error;
+
+  const byDeck = new Map<string, DeckCardStat>();
+  for (const row of (data ?? []) as Pick<CardRow, "deck_id" | "state" | "due">[]) {
+    const stat = byDeck.get(row.deck_id) ?? {
+      deckId: row.deck_id,
+      total: 0,
+      due: 0,
+      fresh: 0,
+    };
+    stat.total += 1;
+    if (new Date(row.due).getTime() <= now.getTime()) stat.due += 1;
+    if (row.state === "new") stat.fresh += 1;
+    byDeck.set(row.deck_id, stat);
+  }
+  return [...byDeck.values()];
+}
+
 export async function updateDeck(
   sb: SupabaseClient,
   id: string,
-  input: { name?: string; groupName?: string | null },
+  input: {
+    name?: string;
+    groupName?: string | null;
+    isPriority?: boolean;
+  },
 ): Promise<void> {
   const payload: any = {};
   if (input.name !== undefined) payload.name = input.name;
   if (input.groupName !== undefined) payload.group_name = input.groupName?.trim() || null;
+  if (input.isPriority !== undefined) payload.is_priority = input.isPriority;
 
   const { error } = await sb
     .from("decks")
