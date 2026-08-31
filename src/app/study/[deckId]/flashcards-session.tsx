@@ -76,12 +76,18 @@ export function FlashcardsSession({ initialCards }: Props) {
   useEffect(() => {
     if (!card || !settings.autoPlay) return;
     if (!frontIsEnglish) return;
-    speak(card.term, settings.speechRate);
-  }, [card, frontIsEnglish, settings.autoPlay, settings.speechRate]);
+    speak(card.term, settings.speechRate, settings.voiceURI);
+  }, [
+    card,
+    frontIsEnglish,
+    settings.autoPlay,
+    settings.speechRate,
+    settings.voiceURI,
+  ]);
 
   const speakTerm = useCallback(() => {
-    if (card) speak(card.term, settings.speechRate);
-  }, [card, settings.speechRate]);
+    if (card) speak(card.term, settings.speechRate, settings.voiceURI);
+  }, [card, settings.speechRate, settings.voiceURI]);
 
   const grade = useCallback(
     (rating: Rating) => {

@@ -103,7 +103,7 @@ export function MatchSession({ initialCards, deckId }: Props) {
     if (matched.has(tile.cardId) || wrongPair) return;
     unlock();
     if (tile.kind === "term") {
-      speak(tile.text, settings.speechRate);
+      speak(tile.text, settings.speechRate, settings.voiceURI);
     }
     if (!selected) {
       setSelected(tile);

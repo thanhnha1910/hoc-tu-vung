@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { listDecks, listDueCards } from "@/lib/repo";
+import { listCards, listDecks, listDueCards } from "@/lib/repo";
 import { DailySession } from "./daily-session";
 
 export default async function DailyStudyPage({
@@ -14,14 +14,14 @@ export default async function DailyStudyPage({
   const { data: auth } = await sb.auth.getUser();
   if (!auth.user) redirect("/login");
 
-  const [cards, decks] = await Promise.all([
-    listDueCards(sb, { deckId, limit: 200 }),
-    listDecks(sb),
-  ]);
+  const decks = await listDecks(sb);
   const selectedDeck = deckId
     ? decks.find((deck) => deck.id === deckId)
     : undefined;
   if (deckId && !selectedDeck) redirect("/decks");
+  const cards = selectedDeck
+    ? await listCards(sb, selectedDeck.id)
+    : await listDueCards(sb, { limit: 200 });
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4 sm:px-6 sm:pt-8">

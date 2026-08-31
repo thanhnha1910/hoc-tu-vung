@@ -21,14 +21,67 @@ export function unlock(): void {
   unlocked = true;
 }
 
-let cachedVoice: SpeechSynthesisVoice | null = null;
+let cachedAutoVoice: SpeechSynthesisVoice | null = null;
 
 // Voices load asynchronously in some browsers (Chrome). Reset cache when the
 // list updates so the next speak() call re-picks with the full list.
 if (typeof window !== "undefined" && "speechSynthesis" in window) {
   window.speechSynthesis.addEventListener?.("voiceschanged", () => {
-    cachedVoice = null;
+    cachedAutoVoice = null;
   });
+}
+
+const PREFERRED_NAMES = [
+  "Ava (Premium)",
+  "Ava (Enhanced)",
+  "Samantha (Premium)",
+  "Samantha (Enhanced)",
+  "Allison (Premium)",
+  "Joelle (Premium)",
+  "Evan (Premium)",
+  "Nathan (Premium)",
+  "Zoe (Premium)",
+  "Microsoft Aria Online",
+  "Microsoft Jenny Online",
+  "Microsoft Aria",
+  "Microsoft Jenny",
+  "Google US English",
+  "Google UK English Female",
+  "Ava",
+  "Samantha",
+  "Karen",
+  "Serena",
+  "Daniel",
+];
+
+function voiceScore(voice: SpeechSynthesisVoice): number {
+  const preferredIndex = PREFERRED_NAMES.findIndex((name) =>
+    voice.name.includes(name),
+  );
+  let score = preferredIndex === -1 ? 0 : 500 - preferredIndex * 10;
+  if (/premium|enhanced|natural|neural|online/i.test(voice.name)) score += 200;
+  if (voice.lang.toLowerCase() === "en-us") score += 80;
+  else if (voice.lang.toLowerCase() === "en-gb") score += 60;
+  else if (voice.lang.toLowerCase().startsWith("en")) score += 40;
+  if (voice.localService) score += 10;
+  if (voice.default) score += 5;
+  return score;
+}
+
+export function getEnglishVoices(): SpeechSynthesisVoice[] {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return [];
+  }
+  const seen = new Set<string>();
+  return window.speechSynthesis
+    .getVoices()
+    .filter((voice) => voice.lang.toLowerCase().startsWith("en"))
+    .filter((voice) => {
+      if (seen.has(voice.voiceURI)) return false;
+      seen.add(voice.voiceURI);
+      return true;
+    })
+    .sort((a, b) => voiceScore(b) - voiceScore(a));
 }
 
 /**
@@ -36,72 +89,28 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
  * Priority: known-natural voices by name → premium/enhanced/neural keywords →
  * en-US → any English voice. Cached after first successful pick.
  */
-function pickEnglishVoice(): SpeechSynthesisVoice | null {
-  if (cachedVoice) return cachedVoice;
+function pickEnglishVoice(voiceURI?: string | null): SpeechSynthesisVoice | null {
   if (typeof window === "undefined") return null;
-  const voices = window.speechSynthesis.getVoices();
-  if (voices.length === 0) return null;
-
-  const english = voices.filter((v) => v.lang.toLowerCase().startsWith("en"));
-  if (english.length === 0) return voices[0];
-
-  // Preferred natural-sounding voices, in priority order.
-  // macOS premium voices use "(Premium)" / "(Enhanced)" suffix on Sonoma+.
-  const preferred = [
-    "Ava (Premium)",
-    "Ava (Enhanced)",
-    "Ava",
-    "Samantha (Premium)",
-    "Samantha (Enhanced)",
-    "Samantha",
-    "Allison (Premium)",
-    "Allison",
-    "Joelle (Premium)",
-    "Joelle",
-    "Evan (Premium)",
-    "Nathan (Premium)",
-    "Zoe (Premium)",
-    "Microsoft Aria Online",
-    "Microsoft Jenny Online",
-    "Microsoft Aria",
-    "Microsoft Jenny",
-    "Microsoft Guy",
-    "Google US English",
-    "Google UK English Female",
-    "Karen",
-    "Serena",
-    "Daniel",
-  ];
-  for (const name of preferred) {
-    const match = english.find((v) => v.name.includes(name));
-    if (match) {
-      cachedVoice = match;
-      return match;
-    }
+  const english = getEnglishVoices();
+  if (voiceURI) {
+    const selected = english.find((voice) => voice.voiceURI === voiceURI);
+    if (selected) return selected;
   }
-
-  // Fallback: any voice with quality keywords in the name
-  const natural = english.find((v) =>
-    /premium|enhanced|natural|neural|online/i.test(v.name),
-  );
-  if (natural) {
-    cachedVoice = natural;
-    return natural;
-  }
-
-  cachedVoice =
-    english.find((v) => v.lang === "en-US") ??
-    english.find((v) => v.lang === "en-GB") ??
-    english[0];
-  return cachedVoice;
+  if (cachedAutoVoice) return cachedAutoVoice;
+  cachedAutoVoice = english[0] ?? window.speechSynthesis.getVoices()[0] ?? null;
+  return cachedAutoVoice;
 }
 
-export function speak(text: string, rate = 0.9): void {
+export function speak(
+  text: string,
+  rate = 0.9,
+  voiceURI?: string | null,
+): void {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   const synth = window.speechSynthesis;
   synth.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  const voice = pickEnglishVoice();
+  const voice = pickEnglishVoice(voiceURI);
   if (voice) u.voice = voice;
   u.lang = voice?.lang ?? "en-US";
   // Clamp rate to a shadowing-friendly band — too slow sounds robotic,
@@ -111,4 +120,9 @@ export function speak(text: string, rate = 0.9): void {
   u.volume = 1;
   synth.speak(u);
   unlocked = true;
+}
+
+export function stopSpeaking(): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
 }

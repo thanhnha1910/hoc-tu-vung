@@ -10,6 +10,8 @@ export interface StudySettings {
   frontSide: FrontSide;
   /** Voice rate 0.5-1.5, 1 = normal */
   speechRate: number;
+  /** Browser voiceURI; null means automatically select the best English voice. */
+  voiceURI: string | null;
 }
 
 const KEY = "hoc-tu-vung:settings:v1";
@@ -20,6 +22,7 @@ export const DEFAULT_SETTINGS: StudySettings = {
   frontSide: "term", // English term shown first by default
   // Slightly slower than natural pace so learners can shadow comfortably.
   speechRate: 0.9,
+  voiceURI: null,
 };
 
 function readSettings(): StudySettings {

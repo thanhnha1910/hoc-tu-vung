@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { StudySettings } from "@/lib/settings";
+import { getEnglishVoices, speak, unlock } from "@/lib/tts";
 
 interface Props {
   settings: StudySettings;
@@ -10,6 +11,7 @@ interface Props {
 
 export function SettingsPanel({ settings, onChange }: Props) {
   const [open, setOpen] = useState(false);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -18,6 +20,15 @@ export function SettingsPanel({ settings, onChange }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !("speechSynthesis" in window)) return;
+    const refresh = () => setVoices(getEnglishVoices());
+    refresh();
+    window.speechSynthesis.addEventListener("voiceschanged", refresh);
+    return () =>
+      window.speechSynthesis.removeEventListener("voiceschanged", refresh);
   }, [open]);
 
   return (
@@ -39,7 +50,7 @@ export function SettingsPanel({ settings, onChange }: Props) {
           onClick={() => setOpen(false)}
         >
           <aside
-            className="flex h-full w-full max-w-sm flex-col gap-5 bg-[var(--color-bg)] p-5 shadow-2xl"
+            className="flex h-full w-full max-w-sm flex-col gap-5 overflow-y-auto bg-[var(--color-bg)] p-5 shadow-2xl"
             style={{
               paddingTop: "max(env(safe-area-inset-top), 1.25rem)",
               paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)",
@@ -71,6 +82,46 @@ export function SettingsPanel({ settings, onChange }: Props) {
               checked={settings.autoPlay}
               onChange={(v) => onChange({ autoPlay: v })}
             />
+
+            <div className="flex flex-col gap-3 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4">
+              <label className="flex flex-col gap-2 text-sm">
+                <span className="font-medium">Giọng đọc tiếng Anh</span>
+                <select
+                  value={settings.voiceURI ?? ""}
+                  onChange={(event) =>
+                    onChange({ voiceURI: event.target.value || null })
+                  }
+                  className="min-h-11 rounded-xl border border-[var(--color-line)] bg-[var(--color-bg)] px-3 outline-none focus:border-[var(--color-accent)]"
+                >
+                  <option value="">Tự chọn giọng hay nhất</option>
+                  {voices.map((voice) => (
+                    <option key={voice.voiceURI} value={voice.voiceURI}>
+                      {voice.name} · {voice.lang}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  unlock();
+                  speak(
+                    "Lifestyle choices affect our health and well-being.",
+                    settings.speechRate,
+                    settings.voiceURI,
+                  );
+                }}
+                className="tap rounded-xl border border-[var(--color-line)] px-4 text-sm font-semibold"
+              >
+                🔊 Nghe thử giọng này
+              </button>
+              {voices.length === 0 && (
+                <p className="text-xs text-[var(--color-ink-muted)]">
+                  Trình duyệt chưa tải danh sách giọng. Hãy bấm nghe thử hoặc mở
+                  lại cài đặt sau vài giây.
+                </p>
+              )}
+            </div>
 
             <fieldset className="flex flex-col gap-2 rounded-2xl border border-[var(--color-line)] bg-[var(--color-bg-elev)] p-4">
               <legend className="px-1 text-sm font-medium">

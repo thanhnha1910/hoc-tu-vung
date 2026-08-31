@@ -121,7 +121,7 @@ export function LearnSession({ initialCards }: Props) {
     // avoid leaking). Always speak — both right and wrong answers — so user
     // hears correct pronunciation. Respect autoPlay setting.
     if (settings.autoPlay) {
-      speak(current.card.term, settings.speechRate);
+      speak(current.card.term, settings.speechRate, settings.voiceURI);
     }
 
     if (advanceTimerRef.current !== null) {
@@ -142,7 +142,7 @@ export function LearnSession({ initialCards }: Props) {
     const expected = question?.expectedAnswer ?? current.card.term;
     setFeedback({ kind: "wrong", given: expected });
     if (settings.autoPlay) {
-      speak(current.card.term, settings.speechRate);
+      speak(current.card.term, settings.speechRate, settings.voiceURI);
     }
     if (advanceTimerRef.current !== null) {
       window.clearTimeout(advanceTimerRef.current);
@@ -227,6 +227,7 @@ export function LearnSession({ initialCards }: Props) {
           question={question}
           feedback={feedback}
           speechRate={settings.speechRate}
+          voiceURI={settings.voiceURI}
           onAnswer={onAnswer}
           onGiveUp={onGiveUp}
           numbered

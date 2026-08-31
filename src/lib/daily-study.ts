@@ -1,4 +1,4 @@
-import type { Card, Deck } from "./types";
+import type { Card, Deck, Rating } from "./types";
 
 export type DailyTaskType = "recall" | "listen" | "write";
 
@@ -6,6 +6,14 @@ export interface DailyQueueItem {
   card: Card;
   task: DailyTaskType;
   attempt: number;
+}
+
+export type FocusQueuePhase = "first" | "retry" | "weak" | "loop";
+
+export interface FocusQueueItem extends DailyQueueItem {
+  batchIndex: number;
+  cycle: number;
+  phase: FocusQueuePhase;
 }
 
 interface QueueOptions {
@@ -54,6 +62,89 @@ export function buildDailyQueue(
   return softPriorityOrder(candidates, priorityIds)
     .slice(0, maxCards)
     .map(toQueueItem);
+}
+
+/**
+ * Build a focused deck queue from every card in deck order. The batch marker
+ * controls the learning UI; it does not cap the number of cards in a session.
+ */
+export function buildFocusQueue(
+  cards: Card[],
+  batchSize = 5,
+): FocusQueueItem[] {
+  const safeBatchSize = Math.max(1, Math.floor(batchSize));
+  return cards.map((card, index) => ({
+    card,
+    task: "recall",
+    attempt: 0,
+    batchIndex: Math.floor(index / safeBatchSize),
+    cycle: 1,
+    phase: "first",
+  }));
+}
+
+/**
+ * Reinsert a weak card once inside its current group. AGAIN appears after two
+ * intervening turns; HARD after four. The retry never crosses into the next
+ * five-card group.
+ */
+export function insertFocusRetry(
+  queue: FocusQueueItem[],
+  currentIndex: number,
+  rating: Rating,
+  updatedCard: Card,
+): FocusQueueItem[] {
+  const current = queue[currentIndex];
+  if (!current || current.phase !== "first" || rating > 2) return queue;
+
+  const spacing = rating === 1 ? 2 : 4;
+  const nextBatchIndex = queue.findIndex(
+    (item, index) =>
+      index > currentIndex &&
+      item.phase === "first" &&
+      item.batchIndex > current.batchIndex,
+  );
+  const boundary = nextBatchIndex === -1 ? queue.length : nextBatchIndex;
+  const insertionIndex = Math.min(currentIndex + spacing + 1, boundary);
+  const retry: FocusQueueItem = {
+    ...current,
+    card: updatedCard,
+    attempt: 1,
+    phase: "retry",
+  };
+
+  return [
+    ...queue.slice(0, insertionIndex),
+    retry,
+    ...queue.slice(insertionIndex),
+  ];
+}
+
+/** Build another continuous practice cycle: weak cards first, then all cards. */
+export function buildFocusLoop(
+  cards: Card[],
+  weakCardIds: ReadonlySet<string>,
+  cycle: number,
+): FocusQueueItem[] {
+  const weak = cards.filter((card) => weakCardIds.has(card.id));
+  return [...weak, ...cards].map((card, index) => ({
+    card,
+    task: "recall",
+    attempt: 1,
+    batchIndex: Math.floor(index / 5),
+    cycle,
+    phase: index < weak.length ? "weak" : "loop",
+  }));
+}
+
+/** Claim the only SRS write allowed for a card during one focused session. */
+export function claimFirstSessionGrade(
+  gradedCardIds: Set<string>,
+  cardId: string,
+): boolean {
+  if (gradedCardIds.has(cardId)) return false;
+  gradedCardIds.add(cardId);
+  return true;
 }
 
 export function normalizeStudyAnswer(value: string): string {

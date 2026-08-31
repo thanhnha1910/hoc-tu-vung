@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildDailyQueue,
+  buildFocusLoop,
+  buildFocusQueue,
   buildListeningOptions,
+  claimFirstSessionGrade,
+  insertFocusRetry,
   isStudyAnswerCorrect,
   normalizeStudyAnswer,
 } from "./daily-study.ts";
@@ -98,6 +102,71 @@ test("deck filter creates an exclusive focused queue", () => {
     { now: NOW, deckId: "a" },
   );
   assert.deepEqual(queue.map((item) => item.card.id), ["a1"]);
+});
+
+test("focus queue keeps every card and marks five-card groups", () => {
+  const cards = Array.from({ length: 12 }, (_, index) =>
+    card(`focus-${index + 1}`, "a", {
+      state: "new",
+      due: new Date(NOW.getTime() + 60_000).toISOString(),
+    }),
+  );
+  const queue = buildFocusQueue(cards);
+
+  assert.equal(queue.length, 12);
+  assert.deepEqual(queue.map((item) => item.batchIndex), [
+    0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2,
+  ]);
+  assert.equal(queue.every((item) => item.phase === "first"), true);
+});
+
+test("weak retry stays inside its five-card group and happens only once", () => {
+  const cards = Array.from({ length: 10 }, (_, index) =>
+    card(`focus-${index + 1}`, "a"),
+  );
+  const initial = buildFocusQueue(cards);
+  const withAgain = insertFocusRetry(initial, 0, 1, cards[0]);
+  assert.deepEqual(
+    withAgain.slice(0, 6).map((item) => `${item.card.id}:${item.phase}`),
+    [
+      "focus-1:first",
+      "focus-2:first",
+      "focus-3:first",
+      "focus-1:retry",
+      "focus-4:first",
+      "focus-5:first",
+    ],
+  );
+
+  const lastInBatch = withAgain.findIndex(
+    (item) => item.card.id === "focus-5" && item.phase === "first",
+  );
+  const withHard = insertFocusRetry(withAgain, lastInBatch, 2, cards[4]);
+  const nextBatch = withHard.findIndex((item) => item.batchIndex === 1);
+  assert.equal(withHard[nextBatch - 1].card.id, "focus-5");
+  assert.equal(withHard[nextBatch - 1].phase, "retry");
+  assert.equal(insertFocusRetry(withHard, nextBatch - 1, 1, cards[4]), withHard);
+});
+
+test("focus loop puts unique weak cards first then keeps the full deck", () => {
+  const cards = Array.from({ length: 6 }, (_, index) =>
+    card(`focus-${index + 1}`, "a"),
+  );
+  const loop = buildFocusLoop(cards, new Set(["focus-2", "focus-5"]), 2);
+  assert.deepEqual(loop.slice(0, 2).map((item) => item.card.id), [
+    "focus-2",
+    "focus-5",
+  ]);
+  assert.equal(loop.length, 8);
+  assert.equal(loop[0].phase, "weak");
+  assert.equal(loop[2].phase, "loop");
+});
+
+test("a focused session persists each card grade only once", () => {
+  const graded = new Set<string>();
+  assert.equal(claimFirstSessionGrade(graded, "focus-1"), true);
+  assert.equal(claimFirstSessionGrade(graded, "focus-1"), false);
+  assert.equal(claimFirstSessionGrade(graded, "focus-2"), true);
 });
 
 test("answer normalization is case, punctuation, spacing and curly-quote tolerant", () => {
