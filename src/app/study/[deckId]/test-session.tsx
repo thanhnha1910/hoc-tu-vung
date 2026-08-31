@@ -233,6 +233,7 @@ export function TestSession({ cards, config, deckId, onRestart }: Props) {
           question={current}
           feedback={feedback}
           speechRate={settings.speechRate}
+          voiceURI={settings.voiceURI}
           onAnswer={onAnswer}
         />
       </div>

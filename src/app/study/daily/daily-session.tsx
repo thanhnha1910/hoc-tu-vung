@@ -4,15 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildDailyQueue,
+  buildFocusLoop,
+  buildFocusQueue,
+  claimFirstSessionGrade,
+  insertFocusRetry,
   type DailyQueueItem,
+  type FocusQueueItem,
 } from "@/lib/daily-study";
 import { insertReviewLog, updateCardSrs } from "@/lib/repo";
 import { type FrontSide, useStudySettings } from "@/lib/settings";
 import { gradeCard } from "@/lib/srs";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { speak, unlock } from "@/lib/tts";
+import { speak, stopSpeaking, unlock } from "@/lib/tts";
 import type { Card, Deck, Rating } from "@/lib/types";
 import { RATING } from "@/lib/types";
+import { SettingsPanel } from "../[deckId]/settings-panel";
 
 const SESSION_SECONDS = 10 * 60;
 
@@ -30,18 +36,23 @@ interface SessionStats {
 
 export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
   const [settings, updateSettings] = useStudySettings();
+  const isFocusSession = Boolean(selectedDeckId);
   const initialQueue = useMemo(
     () =>
-      buildDailyQueue(initialCards, decks, {
-        deckId: selectedDeckId,
-      }),
-    [decks, initialCards, selectedDeckId],
+      isFocusSession
+        ? buildFocusQueue(initialCards)
+        : buildDailyQueue(initialCards, decks),
+    [decks, initialCards, isFocusSession],
   );
-  const [queue, setQueue] = useState<DailyQueueItem[]>(initialQueue);
+  const [queue, setQueue] = useState<(DailyQueueItem | FocusQueueItem)[]>(
+    initialQueue,
+  );
   const [index, setIndex] = useState(0);
   const [remaining, setRemaining] = useState(SESSION_SECONDS);
   const [started, setStarted] = useState(false);
+  const [timeReached, setTimeReached] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [uniqueSeen, setUniqueSeen] = useState(0);
   const [saving, setSaving] = useState(0);
   const [saveError, setSaveError] = useState(false);
   const [stats, setStats] = useState<SessionStats>({
@@ -50,15 +61,22 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
     forgotten: 0,
   });
   const writeChain = useRef<Promise<void>>(Promise.resolve());
+  const gradedCardIds = useRef(new Set<string>());
+  const seenCardIds = useRef(new Set<string>());
+  const weakCardIds = useRef(new Set<string>());
+  const latestCards = useRef(
+    new Map(initialCards.map((card) => [card.id, card])),
+  );
+  const cycle = useRef(1);
   const current = queue[index];
 
   useEffect(() => {
-    if (!started || finished) return;
+    if (!started || finished || timeReached) return;
     const timer = window.setInterval(() => {
       setRemaining((value) => Math.max(0, value - 1));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [finished, started]);
+  }, [finished, started, timeReached]);
 
   function persist(card: Card, rating: Rating) {
     const sb = createSupabaseBrowserClient();
@@ -79,7 +97,21 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
 
   function onGrade(rating: Rating) {
     if (!current) return;
-    const updatedCard = persist(current.card, rating);
+    let updatedCard = current.card;
+    const shouldPersist =
+      !isFocusSession ||
+      claimFirstSessionGrade(gradedCardIds.current, current.card.id);
+    if (shouldPersist) {
+      updatedCard = persist(current.card, rating);
+      latestCards.current.set(current.card.id, updatedCard);
+    }
+    if (!seenCardIds.current.has(current.card.id)) {
+      seenCardIds.current.add(current.card.id);
+      setUniqueSeen(seenCardIds.current.size);
+    }
+    if (rating <= RATING.HARD) weakCardIds.current.add(current.card.id);
+    else weakCardIds.current.delete(current.card.id);
+
     setStats((value) => ({
       remembered: value.remembered + (rating >= RATING.GOOD ? 1 : 0),
       difficult: value.difficult + (rating === RATING.HARD ? 1 : 0),
@@ -87,7 +119,14 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
     }));
 
     let nextQueue = queue;
-    if (rating <= RATING.HARD && current.attempt < 1) {
+    if (isFocusSession && isFocusQueueItem(current)) {
+      nextQueue = insertFocusRetry(
+        queue as FocusQueueItem[],
+        index,
+        rating,
+        updatedCard,
+      );
+    } else if (rating <= RATING.HARD && current.attempt < 1) {
       const retry: DailyQueueItem = {
         card: updatedCard,
         task: current.task === "listen" ? "recall" : "write",
@@ -99,13 +138,31 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
         retry,
         ...queue.slice(insertionIndex),
       ];
-      setQueue(nextQueue);
     }
 
-    if (remaining === 0 || index + 1 >= nextQueue.length) {
+    let nextIndex = index + 1;
+    if (isFocusSession && nextIndex >= nextQueue.length) {
+      cycle.current += 1;
+      const currentCards = initialCards.map(
+        (card) => latestCards.current.get(card.id) ?? card,
+      );
+      const shuffledCards = shuffleCards(currentCards);
+      const refill = buildFocusLoop(
+        shuffledCards,
+        weakCardIds.current,
+        cycle.current,
+      );
+      nextQueue = [...nextQueue, ...refill];
+    }
+    if (nextQueue !== queue) setQueue(nextQueue);
+
+    if (remaining === 0 && isFocusSession) {
+      setIndex(nextIndex);
+      setTimeReached(true);
+    } else if (remaining === 0 || nextIndex >= nextQueue.length) {
       setFinished(true);
     } else {
-      setIndex((value) => value + 1);
+      setIndex(nextIndex);
     }
   }
 
@@ -116,9 +173,12 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
           ✓
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Hoàn thành phiên hôm nay</h1>
+          <h1 className="text-2xl font-bold">
+            {isFocusSession ? "Đã kết thúc phiên luyện" : "Hoàn thành phiên hôm nay"}
+          </h1>
           <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
-            Bạn đã luyện {stats.remembered + stats.difficult + stats.forgotten} lượt nhớ chủ động.
+            Bạn đã luyện {stats.remembered + stats.difficult + stats.forgotten}{" "}
+            lượt · {uniqueSeen} thẻ khác nhau.
           </p>
         </div>
         <div className="grid w-full max-w-sm grid-cols-3 gap-2">
@@ -159,9 +219,13 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
       <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
         <span className="text-5xl">🌿</span>
         <div>
-          <h1 className="text-xl font-bold">Bạn đã ôn đủ rồi</h1>
+          <h1 className="text-xl font-bold">
+            {isFocusSession ? "Bộ này chưa có thẻ" : "Bạn đã ôn đủ rồi"}
+          </h1>
           <p className="mt-2 max-w-xs text-sm text-[var(--color-ink-muted)]">
-            Chưa có thẻ nào đến hạn. Bạn có thể thêm từ mới hoặc luyện thêm một bộ.
+            {isFocusSession
+              ? "Hãy thêm từ hoặc cụm từ trước khi bắt đầu phiên tập trung."
+              : "Chưa có thẻ nào đến hạn. Bạn có thể thêm từ mới hoặc luyện thêm một bộ."}
           </p>
         </div>
         <Link
@@ -176,16 +240,52 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
 
   if (!started) {
     return (
-      <SessionSetup
-        frontSide={settings.frontSide}
-        onDirectionChange={(frontSide) => updateSettings({ frontSide })}
-        onStart={() => setStarted(true)}
+      <div className="flex flex-1 flex-col gap-3">
+        <div className="flex justify-end">
+          <SettingsPanel settings={settings} onChange={updateSettings} />
+        </div>
+        <SessionSetup
+          frontSide={settings.frontSide}
+          isFocusSession={isFocusSession}
+          cardCount={initialCards.length}
+          onDirectionChange={(frontSide) => updateSettings({ frontSide })}
+          onStart={() => {
+            unlock();
+            setStarted(true);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (timeReached) {
+    return (
+      <TimeMilestone
+        uniqueSeen={uniqueSeen}
+        turns={stats.remembered + stats.difficult + stats.forgotten}
+        saving={saving}
+        onContinue={() => {
+          setRemaining(SESSION_SECONDS);
+          setTimeReached(false);
+        }}
+        onFinish={() => setFinished(true)}
       />
     );
   }
 
-  const completed = index;
-  const estimatedTotal = Math.max(queue.length, completed + 1);
+  const completed = isFocusSession ? uniqueSeen : index;
+  const estimatedTotal = isFocusSession
+    ? initialCards.length
+    : Math.max(queue.length, completed + 1);
+  const focusItem = isFocusQueueItem(current) ? current : null;
+  const totalGroups = Math.max(1, Math.ceil(initialCards.length / 5));
+  const progressLabel = focusItem
+    ? focusItem.cycle === 1
+      ? `Nhóm ${Math.min(focusItem.batchIndex + 1, totalGroups)}/${totalGroups}`
+      : focusItem.phase === "weak"
+        ? "Ôn thẻ yếu"
+        : `Vòng luyện ${focusItem.cycle}`
+    : undefined;
   return (
     <div className="flex flex-1 flex-col gap-4">
       <SessionProgress
@@ -193,20 +293,27 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
         total={estimatedTotal}
         remaining={remaining}
         saving={saving}
+        label={progressLabel}
       />
-      <DirectionSwitch
-        frontSide={settings.frontSide}
-        onChange={(frontSide) => updateSettings({ frontSide })}
-      />
+      <div className="flex items-center justify-end gap-2">
+        <DirectionSwitch
+          frontSide={settings.frontSide}
+          onChange={(frontSide) => updateSettings({ frontSide })}
+        />
+        <SettingsPanel settings={settings} onChange={updateSettings} />
+      </div>
       {saveError && (
         <p className="rounded-xl bg-[var(--color-bad-soft)] px-3 py-2 text-xs text-[var(--color-bad)]">
           Mạng không ổn định — bạn vẫn có thể tiếp tục học.
         </p>
       )}
       <DailyPrompt
-        key={`${current.card.id}:${current.attempt}:${settings.frontSide}`}
+        key={`${current.card.id}:${current.attempt}:${focusItem?.cycle ?? 1}:${settings.frontSide}`}
         item={current}
         frontSide={settings.frontSide}
+        autoPlay={settings.autoPlay}
+        speechRate={settings.speechRate}
+        voiceURI={settings.voiceURI}
         deckName={decks.find((deck) => deck.id === current.card.deckId)?.name}
         onGrade={onGrade}
       />
@@ -217,11 +324,17 @@ export function DailySession({ initialCards, decks, selectedDeckId }: Props) {
 function DailyPrompt({
   item,
   frontSide,
+  autoPlay,
+  speechRate,
+  voiceURI,
   deckName,
   onGrade,
 }: {
   item: DailyQueueItem;
   frontSide: FrontSide;
+  autoPlay: boolean;
+  speechRate: number;
+  voiceURI: string | null;
   deckName?: string;
   onGrade: (rating: Rating) => void;
 }) {
@@ -230,9 +343,25 @@ function DailyPrompt({
   const frontText = frontIsEnglish ? item.card.term : item.card.definition;
   const backText = frontIsEnglish ? item.card.definition : item.card.term;
 
+  useEffect(() => {
+    const englishVisible = frontIsEnglish ? !revealed : revealed;
+    if (autoPlay && englishVisible) {
+      speak(item.card.term, speechRate, voiceURI);
+    }
+    return stopSpeaking;
+  }, [
+    autoPlay,
+    frontIsEnglish,
+    item.card.id,
+    item.card.term,
+    revealed,
+    speechRate,
+    voiceURI,
+  ]);
+
   function playTerm() {
     unlock();
-    speak(item.card.term, 0.9);
+    speak(item.card.term, speechRate, voiceURI);
   }
 
   return (
@@ -325,10 +454,14 @@ function DailyPrompt({
 
 function SessionSetup({
   frontSide,
+  isFocusSession,
+  cardCount,
   onDirectionChange,
   onStart,
 }: {
   frontSide: FrontSide;
+  isFocusSession: boolean;
+  cardCount: number;
   onDirectionChange: (frontSide: FrontSide) => void;
   onStart: () => void;
 }) {
@@ -338,7 +471,9 @@ function SessionSetup({
         <div className="text-center">
           <h1 className="text-2xl font-bold sm:text-3xl">Bạn muốn xem mặt nào trước?</h1>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-[var(--color-ink-muted)]">
-            Mỗi thẻ chỉ hiện một mặt. Bạn tự nhớ, lật xem đáp án rồi chấm mức độ nhớ.
+            {isFocusSession
+              ? `${cardCount} thẻ sẽ tự chạy theo từng nhóm 5. Thẻ yếu được ôn lại rồi ứng dụng tự chuyển sang nhóm tiếp theo.`
+              : "Mỗi thẻ chỉ hiện một mặt. Bạn tự nhớ, lật xem đáp án rồi chấm mức độ nhớ."}
           </p>
         </div>
 
@@ -423,17 +558,15 @@ function DirectionSwitch({
 }) {
   const frontIsEnglish = frontSide === "term";
   return (
-    <div className="flex justify-end">
-      <button
-        type="button"
-        onClick={() => onChange(frontIsEnglish ? "definition" : "term")}
-        className="tap inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-bg-elev)] px-3 text-xs font-semibold text-[var(--color-ink-muted)]"
-        aria-label={`Đổi sang ${frontIsEnglish ? "tiếng Việt trước" : "tiếng Anh trước"}`}
-      >
-        <span>{frontIsEnglish ? "EN → VI" : "VI → EN"}</span>
-        <span aria-hidden>⇄</span>
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={() => onChange(frontIsEnglish ? "definition" : "term")}
+      className="tap inline-flex items-center gap-2 rounded-full border border-[var(--color-line)] bg-[var(--color-bg-elev)] px-3 text-xs font-semibold text-[var(--color-ink-muted)]"
+      aria-label={`Đổi sang ${frontIsEnglish ? "tiếng Việt trước" : "tiếng Anh trước"}`}
+    >
+      <span>{frontIsEnglish ? "EN → VI" : "VI → EN"}</span>
+      <span aria-hidden>⇄</span>
+    </button>
   );
 }
 
@@ -479,17 +612,24 @@ function SessionProgress({
   total,
   remaining,
   saving,
+  label,
 }: {
   completed: number;
   total: number;
   remaining: number;
   saving: number;
+  label?: string;
 }) {
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
   const progress = Math.min(100, (completed / Math.max(1, total)) * 100);
   return (
     <div className="flex items-center gap-3">
+      {label && (
+        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
+          {label}
+        </span>
+      )}
       <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--color-line)]">
         <div
           className="h-full rounded-full bg-[var(--color-accent)] transition-[width] duration-300"
@@ -504,6 +644,72 @@ function SessionProgress({
       </span>
     </div>
   );
+}
+
+function TimeMilestone({
+  uniqueSeen,
+  turns,
+  saving,
+  onContinue,
+  onFinish,
+}: {
+  uniqueSeen: number;
+  turns: number;
+  saving: number;
+  onContinue: () => void;
+  onFinish: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-5 py-10 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--color-accent-soft)] text-3xl">
+        ⏱
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold">Bạn đã học đủ 10 phút</h1>
+        <p className="mt-2 text-sm text-[var(--color-ink-muted)]">
+          {uniqueSeen} thẻ khác nhau · {turns} lượt luyện. Hàng đợi hiện tại vẫn
+          được giữ nguyên.
+        </p>
+      </div>
+      {saving > 0 && (
+        <p className="text-xs text-[var(--color-ink-muted)]">
+          Đang lưu {saving} thay đổi…
+        </p>
+      )}
+      <div className="grid w-full max-w-sm gap-2">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="tap rounded-2xl bg-[var(--color-accent)] px-5 font-semibold text-[var(--color-accent-ink)]"
+        >
+          Luyện thêm 10 phút
+        </button>
+        <button
+          type="button"
+          onClick={onFinish}
+          disabled={saving > 0}
+          className="tap rounded-2xl border border-[var(--color-line)] px-5 font-semibold disabled:opacity-50"
+        >
+          {saving > 0 ? "Đang hoàn tất lưu…" : "Kết thúc phiên"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function isFocusQueueItem(
+  item: DailyQueueItem | FocusQueueItem,
+): item is FocusQueueItem {
+  return "phase" in item;
+}
+
+function shuffleCards(cards: Card[]): Card[] {
+  const result = [...cards];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function GradeButton({

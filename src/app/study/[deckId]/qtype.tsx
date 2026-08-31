@@ -24,6 +24,7 @@ interface BaseProps {
   question: Question;
   feedback: Feedback;
   speechRate: number;
+  voiceURI: string | null;
   onAnswer: (correct: boolean, given?: string) => void;
   /** Optional surrender — treated as wrong, reveals answer. */
   onGiveUp?: () => void;
@@ -54,11 +55,13 @@ function PromptHeader({
   prompt,
   speakable,
   rate,
+  voiceURI,
 }: {
   label: string;
   prompt: string;
   speakable?: boolean;
   rate: number;
+  voiceURI?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -76,7 +79,7 @@ function PromptHeader({
             onClick={(e) => {
               e.stopPropagation();
               unlock();
-              speak(prompt, rate);
+              speak(prompt, rate, voiceURI);
             }}
             className="tap shrink-0 rounded-full border border-[var(--color-line)] text-lg"
           >
@@ -119,7 +122,7 @@ function ActionRow({
 }
 
 // ─── 1. Preview ───
-function PreviewQ({ question, onAnswer, speechRate }: BaseProps) {
+function PreviewQ({ question, onAnswer, speechRate, voiceURI }: BaseProps) {
   return (
     <div className="flex flex-1 flex-col gap-5">
       <PromptHeader
@@ -127,6 +130,7 @@ function PreviewQ({ question, onAnswer, speechRate }: BaseProps) {
         prompt={question.card.term}
         speakable
         rate={speechRate}
+        voiceURI={voiceURI}
       />
       <p className="text-lg text-[var(--color-ink-muted)] sm:text-xl">
         {question.card.definition}
@@ -153,7 +157,7 @@ function PreviewQ({ question, onAnswer, speechRate }: BaseProps) {
 }
 
 // ─── 2. MCQ ───
-function McqQ({ question, feedback, onAnswer, onGiveUp, speechRate, numbered = true }: BaseProps) {
+function McqQ({ question, feedback, onAnswer, onGiveUp, speechRate, voiceURI, numbered = true }: BaseProps) {
   const isDefToTerm = question.type === "mcq-def-to-term";
   const promptLabel = isDefToTerm ? "Định nghĩa" : "Thuật ngữ";
 
@@ -181,6 +185,7 @@ function McqQ({ question, feedback, onAnswer, onGiveUp, speechRate, numbered = t
         prompt={question.prompt}
         speakable={!isDefToTerm}
         rate={speechRate}
+        voiceURI={voiceURI}
       />
 
       <div className="flex flex-col gap-3">
@@ -238,7 +243,7 @@ function McqQ({ question, feedback, onAnswer, onGiveUp, speechRate, numbered = t
 }
 
 // ─── 3. True / False ───
-function TfQ({ question, feedback, onAnswer, onGiveUp, speechRate }: BaseProps) {
+function TfQ({ question, feedback, onAnswer, onGiveUp, speechRate, voiceURI }: BaseProps) {
   // Keyboard: 1=True, 2=False
   useEffect(() => {
     if (feedback) return;
@@ -265,6 +270,7 @@ function TfQ({ question, feedback, onAnswer, onGiveUp, speechRate }: BaseProps) 
         prompt={question.card.term}
         speakable
         rate={speechRate}
+        voiceURI={voiceURI}
       />
       <div>
         <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-ink-muted)]">
